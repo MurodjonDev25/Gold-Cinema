@@ -1,0 +1,784 @@
+{
+  "movies": {
+    "1": {
+      "file_id": "BAACAgIAAxkBAAMiaovw81ufq828W5Uug8LSvAVi_PgAAvpvAAKtEuBKyZ2zMf7IOs49BA",
+      "name": "Changalzordagi Ajal",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2025",
+      "janr": "Tarjima Qo'rqinchli",
+      "davlat": "Britaniya, Tailand Va Daniya Kinostudiyalari Tomonidan Hamkorlikda Ishlab Chiqarilgan",
+      "davomiyligi": "1 Soat 27 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "2": {
+      "file_id": "BAACAgEAAxkBAAIGwmqg4HiGLfNoK2hR48wPs6DkU6l5AAKfAgACIcQ5R2bk0KgSv1LUPQQ",
+      "name": "Texasdagi Qonli Qirg'in",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2024",
+      "janr": "Tarjima Qo'rqinchli",
+      "davlat": "AQSH",
+      "davomiyligi": "1 Soat 30 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "3": {
+      "file_id": "BAACAgEAAxkBAAICPmqMbNWi0yQw3BtUZMe4hlrQgyT_AAKmAwACothRRMidliKEFjywPQQ",
+      "name": "Yashil Maskan",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "1999",
+      "janr": "Drama, Mistika",
+      "davlat": "AQSH",
+      "davomiyligi": "3 Soat 15 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "4": {
+      "file_id": "BAACAgQAAxkBAAICy2qNYByn44-AczRcn6pXwA6HuFhqAALuFQACaLdgURYfYOuh3e8pPQQ",
+      "name": "Oltin To'qmoq",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2009",
+      "janr": "Komediya, Jangari Sarguzasht",
+      "davlat": "Yaponiya",
+      "davomiyligi": "1 Soat 44 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "5": {
+      "file_id": "BAACAgIAAxkBAAIDa2qNdMltNSLlqMa_-yfX1GYBp1Z2AALSWgACmjlpSQkITks366C-PQQ",
+      "name": "O'lim Ovozi",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2024",
+      "janr": "Tarjima Qo'rqinchli",
+      "davlat": "AQSH",
+      "davomiyligi": "1 Soat 28 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "6": {
+      "file_id": "BAACAgQAAxkBAAIDb2qNqm4StSOh7zTpqVmDGZMGW6QrAALqCQACo2aJUxF0l3u5t9uqPQQ",
+      "name": "QOTILNING RAFIQASI TANSOQCHIS",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2021",
+      "janr": "Tarjima Qo'rqinchli",
+      "davlat": "AQSH",
+      "davomiyligi": "1 Soat 30 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "7": {
+      "file_id": "BAACAgIAAxkBAAIDpGqNzzw19vL5tNidgib0Pv07XUi5AAJOpAACCdpoS8mE8yxDAXA4PQQ",
+      "name": "O'zaro Qizlar O'rtasida",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2016",
+      "janr": "Romantika, Drama",
+      "davlat": "Italiya",
+      "davomiyligi": "1 Soat 32 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "8": {
+      "file_id": "BAACAgIAAxkBAAIF2WqbxuAuZQsILSXB9wT8A9YKyH_YAAI-qgACTj6hSIRpqnTl6l4XPQQ",
+      "name": "QO'RQINCHLI SAHRO",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2015",
+      "janr": "Jangari Fantastika",
+      "davlat": "AQSH, Buyuk Britaniya",
+      "davomiyligi": "1 Soat 25 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "9": {
+      "file_id": "BAACAgIAAxkBAAIFnWqUdTyk-mNxlYwCcOnQNM1XpZWdAAJlqgACTj6hSLaS-Og5mK02PQQ",
+      "name": "Iblisga O`lja",
+      "til": "O'zbek Tilida",
+      "sifat": "7200P",
+      "yil": "2022",
+      "janr": "Qo'rqinchli, Triller",
+      "davlat": "AQSH",
+      "davomiyligi": "1 Soat 29 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "10": {
+      "file_id": "BAACAgEAAxkBAAIDcWqNrVFrgdkTm-q8oeT8cjTyean3AALOBAAC-sj4RAzcweghM14RPQQ",
+      "name": "Uch Qahramon",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2025",
+      "davlat": "AQSH",
+      "davomiyligi": "2 Soat 21 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null,
+      "janr": "Jangari, Dramma"
+    },
+    "11": {
+      "file_id": "BAACAgUAAxkBAAIDc2qNraWEO3AAAWlHAceRVmRbhpiHjQAC7g8AAlG7oVRAfHnNHskHkz0E",
+      "name": "Noto'g'ri Burilish: 2 Qism",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2008",
+      "janr": "Qo`rqinchli Sagruzasht",
+      "davlat": "Aqsh",
+      "davomiyligi": "1 Soat 36 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "12": {
+      "file_id": "BAACAgUAAxkBAAIDdGqNrnfdikFn4tDI8QSWfuCiQfoGAALyDwACUbuhVIrjAbbO2TvSPQQ",
+      "name": "Noto'g'ri Burilish: 3 Qism",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2019",
+      "janr": "Fantastika, Jangari",
+      "davlat": "AQSH",
+      "davomiyligi": "3 Soat 1 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "13": {
+      "file_id": "BAACAgIAAxkBAAIFu2qbwsxSMelY0mG_kVE_cuu3JxnkAAJ6qQACQzvYSJAN9_dmsNAbPQQ",
+      "name": "Ajdar Nayzasi",
+      "til": "O'zbek Tilida",
+      "sifat": "480P",
+      "yil": "2008",
+      "janr": "Multfilm, Sarguzasht",
+      "davlat": "AQSH, Germaniya, Hindiston",
+      "davomiyligi": "1 Soat 31 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "14": {
+      "file_id": "BAACAgIAAxkBAAIFwWqbxXf8JOXZFQSM4rlwPPonp6O-AAJDmwACBobhSANYpeMwg_99PQQ",
+      "name": "Maymunlar Saltanati",
+      "til": "O'zbek Tilida",
+      "sifat": "480P",
+      "yil": "1999",
+      "janr": "Multfilm, Sarguzasht,",
+      "davlat": "Fransiya",
+      "davomiyligi": "1 Soat 12 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "15": {
+      "file_id": "BAACAgIAAxkBAAIG0GqFzidURAPi-cY9sI6mQyMkyKV3AALnIAACyWSwUiCatVZuzQdEPQQ",
+      "name": "Sidjin 1 Qismi",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2014",
+      "janr": "Detektiv, Drama",
+      "davlat": "AQSH",
+      "davomiyligi": "2 Soat 56 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "16": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Chumoli Odam",
+      "til": "O'zbek Tilida",
+      "sifat": "720P",
+      "yil": "2015",
+      "janr": "Fantastika, Triller",
+      "davlat": "AQSH",
+      "davomiyligi": "1 Soat 56 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "17": {
+      "file_id": "BAACAgQAAxkBAAIG6Gqm3EvfZmsUAia9Ud7GnyjJSqyvAAJTGQACO_hgUAABUlFY9cN0Az0E",
+      "name": "Faun Labirinti",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2006",
+      "janr": "Fantaziya Drama",
+      "davlat": "Meksika",
+      "davomiyligi": "1 Soat 58 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "18": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Matritsa",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "1999",
+      "janr": "Fantastika, Jangari",
+      "davlat": "AQSH",
+      "davomiyligi": "2 Soat 16 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "19": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Inception (Muqaddima)",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2010",
+      "janr": "Fantastika, Triller",
+      "davlat": "AQSH",
+      "davomiyligi": "2 Soat 28 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "20": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Interstellar",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2014",
+      "janr": "Fantastika, Drama",
+      "davlat": "AQSH, Buyuk Britaniya",
+      "davomiyligi": "2 Soat 49 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "21": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Joker",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2019",
+      "janr": "Drama, Kriminal",
+      "davlat": "AQSH",
+      "davomiyligi": "2 Soat 2 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "22": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Titanik",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "1997",
+      "janr": "Drama, Melodramas",
+      "davlat": "AQSH",
+      "davomiyligi": "3 Soat 14 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "23": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Forsaj 9",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2021",
+      "janr": "Jangari",
+      "davlat": "AQSH",
+      "davomiyligi": "2 Soat 23 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "24": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Venom 2",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2021",
+      "janr": "Fantastika, Jangari",
+      "davlat": "AQSH",
+      "davomiyligi": "1 Soat 37 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "25": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Shrek",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2001",
+      "janr": "Animatsiya, Komediya",
+      "davlat": "AQSH",
+      "davomiyligi": "1 Soat 30 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "26": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Mister Va Missis Smit",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2005",
+      "janr": "Jangari, Komediya",
+      "davlat": "AQSH",
+      "davomiyligi": "2 Soat 0 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "27": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Qora Odamlar 3",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2012",
+      "janr": "Fantastika, Komediya",
+      "davlat": "AQSH",
+      "davomiyligi": "1 Soat 46 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "28": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Katta O'yin",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2017",
+      "janr": "Drama, Biografiya",
+      "davlat": "AQSH",
+      "davomiyligi": "2 Soat 20 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "29": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Beshinchi Element",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "1997",
+      "janr": "Fantastika, Jangari",
+      "davlat": "Fransiya",
+      "davomiyligi": "2 Soat 6 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "30": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Terminator 2: Qiyomat Kuni",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "1991",
+      "janr": "Fantastika, Jangari",
+      "davlat": "AQSH",
+      "davomiyligi": "2 Soat 17 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "31": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Pianist",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2002",
+      "janr": "Biografiya, Drama",
+      "davlat": "Buyuk Britaniya, Fransiya",
+      "davomiyligi": "2 Soat 30 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "32": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Yashil Mum",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "1999",
+      "janr": "Kriminal, Drama",
+      "davlat": "AQSH",
+      "davomiyligi": "3 Soat 9 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "33": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Forrest Gamp",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "1994",
+      "janr": "Drama, Komediya",
+      "davlat": "AQSH",
+      "davomiyligi": "2 Soat 22 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "34": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Qochish Shoushenkdan",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "1994",
+      "janr": "Drama",
+      "davlat": "AQSH",
+      "davomiyligi": "2 Soat 22 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "35": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Lion King (Qirol Sher)",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "1994",
+      "janr": "Animatsiya, Drama",
+      "davlat": "AQSH",
+      "davomiyligi": "1 Soat 28 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "36": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Qora Ritsar",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2008",
+      "janr": "Jangari, Kriminal",
+      "davlat": "AQSH",
+      "davomiyligi": "2 Soat 32 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "37": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Qasoskorlar: Cheksizlik Jangi",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2018",
+      "janr": "Fantastika, Jangari",
+      "davlat": "AQSH",
+      "davomiyligi": "2 Soat 29 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "38": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Spider-Man: Uyga Yo'l Yo'q",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2021",
+      "janr": "Fantastika, Jangari",
+      "davlat": "AQSH",
+      "davomiyligi": "2 Soat 28 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "39": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Doktor Streyndj 2",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2022",
+      "janr": "Fantastika, Qo'rqinchli",
+      "davlat": "AQSH",
+      "davomiyligi": "2 Soat 6 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "40": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Thor: Sevishgachlar Va Momaqaldiroq",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2022",
+      "janr": "Fantastika, Jangari",
+      "davlat": "AQSH",
+      "davomiyligi": "1 Soat 58 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "41": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Minions: Gru",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2022",
+      "janr": "Animatsiya, Komediya",
+      "davlat": "AQSH",
+      "davomiyligi": "1 Soat 27 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "42": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Sonic 2",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2022",
+      "janr": "Animatsiya, Sarguzasht",
+      "davlat": "AQSH, Yaponiya",
+      "davomiyligi": "2 Soat 2 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "43": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Qora Adam",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2022",
+      "janr": "Fantastika, Jangari",
+      "davlat": "AQSH",
+      "davomiyligi": "2 Soat 5 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "44": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Qahramonlar Shahri",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2014",
+      "janr": "Animatsiya, Fantastika",
+      "davlat": "AQSH",
+      "davomiyligi": "1 Soat 42 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "45": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Boshqotirma",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2015",
+      "janr": "Animatsiya, Komediya",
+      "davlat": "AQSH",
+      "davomiyligi": "1 Soat 35 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "46": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Koko Sarguzashtlari",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2017",
+      "janr": "Animatsiya, Fentezi",
+      "davlat": "AQSH",
+      "davomiyligi": "1 Soat 45 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "47": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Muzlik Davri 5",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2016",
+      "janr": "Animatsiya, Sarguzasht",
+      "davlat": "AQSH",
+      "davomiyligi": "1 Soat 34 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "48": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Madagaskar 3",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2012",
+      "janr": "Animatsiya, Komediya",
+      "davlat": "AQSH",
+      "davomiyligi": "1 Soat 33 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "49": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Kung Fu Panda 3",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2016",
+      "janr": "Animatsiya, Jangari",
+      "davlat": "AQSH, Xitoy",
+      "davomiyligi": "1 Soat 35 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    },
+    "50": {
+      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
+      "name": "Garri Potter Va Faylasuflar Tosh",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2001",
+      "janr": "Fentezi, Sarguzasht",
+      "davlat": "Buyuk Britaniya, AQSH",
+      "davomiyligi": "2 Soat 32 Minut",
+      "is_premium": false,
+      "is_premiere": false,
+      "trailer_file_id": null
+    }
+  },
+  "premium_users": [
+    8564176944
+  ],
+  "all_users": [
+    8234785808,
+    8564176944,
+    2138780687
+  ],
+  "user_info": {
+    "8234785808": {
+      "name": "Murodjon",
+      "username": "@Murodjondev26",
+      "joined": "25.08.2026 | 15:06"
+    },
+    "8564176944": {
+      "name": "Murodjon",
+      "username": "@Murodjondev",
+      "joined": "25.08.2026 | 15:09"
+    },
+    "2138780687": {
+      "name": "🐾",
+      "username": "@muratjonovv",
+      "phone": "Mavjud emas",
+      "joined": "20.09.2026 | 12:52"
+    }
+  },
+  "favorites": {
+    "2138780687": [
+      "29"
+    ]
+  },
+  "views": {
+    "8234785808": 12,
+    "8564176944": 133,
+    "2138780687": 3
+  },
+  "daily_views": {
+    "8234785808": {
+      "date": "2026-08-30",
+      "count": 3
+    },
+    "2138780687": {
+      "date": "2026-09-20",
+      "count": 3
+    }
+  },
+  "referrals": {},
+  "referred_by": {},
+  "current_premiere": "55",
+  "ratings": {
+    "1": {
+      "likes": [],
+      "dislikes": []
+    },
+    "2": {
+      "likes": [],
+      "dislikes": []
+    },
+    "3": {
+      "likes": [],
+      "dislikes": []
+    },
+    "4": {
+      "likes": [],
+      "dislikes": [
+        8564176944
+      ]
+    },
+    "5": {
+      "likes": [],
+      "dislikes": []
+    },
+    "6": {
+      "likes": [],
+      "dislikes": []
+    },
+    "7": {
+      "likes": [],
+      "dislikes": []
+    },
+    "8": {
+      "likes": [],
+      "dislikes": []
+    },
+    "9": {
+      "likes": [],
+      "dislikes": []
+    },
+    "10": {
+      "likes": [],
+      "dislikes": []
+    },
+    "11": {
+      "likes": [],
+      "dislikes": []
+    },
+    "12": {
+      "likes": [],
+      "dislikes": []
+    },
+    "13": {
+      "likes": [],
+      "dislikes": []
+    },
+    "14": {
+      "likes": [],
+      "dislikes": []
+    },
+    "15": {
+      "likes": [],
+      "dislikes": []
+    },
+    "16": {
+      "likes": [],
+      "dislikes": []
+    },
+    "17": {
+      "likes": [],
+      "dislikes": []
+    },
+    "18": {
+      "likes": [],
+      "dislikes": []
+    },
+    "19": {
+      "likes": [],
+      "dislikes": []
+    }
+    
+  }
+}
