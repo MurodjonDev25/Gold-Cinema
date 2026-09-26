@@ -33,7 +33,8 @@ from dotenv import load_dotenv
 #  SOZLAMALAR
 # ======================================================================================
 
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 
 def get_int_env(name: str, default: int) -> int:
@@ -76,8 +77,8 @@ REFERRALS: dict[int, set[int]] = {}     # {referrer_id: {taklif qilinganlar}}
 REFERRED_BY: dict[int, int] = {}        # {user_id: kim taklif qilgani}
 
 CURRENT_PREMIERE: str | None = None     # Hozirgi premyera kino kodi
-DATA_FILE = os.path.join(os.path.dirname(__file__), "gold_cinema_data.json")
-USERS_DATA_FILE = os.path.join(os.path.dirname(__file__), "users_database.json")
+DATA_FILE = os.path.join(BASE_DIR, "gold_cinema_data.json")
+USERS_DATA_FILE = os.path.join(BASE_DIR, "users_database.json")
 
 BOT_START_TIME = datetime.now()
 BOT_USERNAME = ""  # main() ichida to'ldiriladi
@@ -362,7 +363,22 @@ MOVIES_DATABASE = {
         "davlat": "Janubiy Koreya",
         "davomiyligi": "1 soat 58 minut",
         "is_premium": False,
+        
+        
+        "20":{
+            "file_id": "BAACAgQAAxkBAAIHVGqvsnZTBzvr7ePv9aPZqJjLOwRiAAJGIQAC-gyAUWvwB148Man5PQQ",
+                    "name": "Li Kronning Mumiyosi",
+                    "til": "O'zbek tilida",
+                    "sifat": "1080p",
+                    "yil": "2025",
+                    "janr": "Qo'rqinchli, Sarguzasht",
+                    "davlat": " Irlandiya Va Ispaniya.",
+                    "davomiyligi": "2 soat 15 daqiqa",
+                    "is_premium": False,
+        }
+            
     },
+    
    
 }
 
@@ -607,18 +623,13 @@ def build_movie_keyboard(code: str, movie: dict, user_id: int | None = None) -> 
 
 
 def get_admin_keyboard():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="👑 Admin panel")],
-            [KeyboardButton(text="👤 Foydalanuvchi paneli")],
-        ],
-        resize_keyboard=True,
-    )
+    return build_admin_reply_keyboard()
 
 
 def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
+            [KeyboardButton(text="👑 Admin panel"), KeyboardButton(text="👤 Foydalanuvchi paneli")],
             [KeyboardButton(text="👥 Foydalanuvchilar ro'yxati"), KeyboardButton(text="📊 Bot statistikasi")],
             [KeyboardButton(text="💎 Premium users"), KeyboardButton(text="📥 Bazani yuklab olish")],
             [KeyboardButton(text="➕ Kino qo'shish"), KeyboardButton(text="✏️ Kino tahrirlash")],
@@ -626,21 +637,26 @@ def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="👑 Premium berish/olish"), KeyboardButton(text="📚 Kino ro'yxati")],
             [KeyboardButton(text="📢 Xabar yuborish"), KeyboardButton(text="🗳 So'rovnoma yuborish")],
             [KeyboardButton(text="💾 Ma'lumotlarni saqlash")],
-            [KeyboardButton(text="👤 Foydalanuvchi paneli")],
         ],
         resize_keyboard=True,
     )
 
 
 def build_user_reply_keyboard() -> ReplyKeyboardMarkup:
+    keyboard = []
+    if CURRENT_PREMIERE and CURRENT_PREMIERE in MOVIES_DATABASE:
+        keyboard.append([KeyboardButton(text="🎬 PREMYERA KINO")])
+    keyboard += [
+        [KeyboardButton(text="🎲 Tasodifiy kino"), KeyboardButton(text="📅 Kunning kinosi")],
+        [KeyboardButton(text="🔥 TOP kinolar"), KeyboardButton(text="🎯 Menga mos kino")],
+        [KeyboardButton(text="⭐ Sevimlilarim"), KeyboardButton(text="📊 Statistikam")],
+        [KeyboardButton(text="📝 Kino so'rash"), KeyboardButton(text="🤝 Do'stni taklif qilish")],
+        [KeyboardButton(text="💎 Premium"), KeyboardButton(text="🔎 Qidirish yordami")],
+    ]
+    if ADMIN_USERNAME:
+        keyboard.append([KeyboardButton(text="📞 Admin bilan bog'lanish")])
     return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="🎲 Tasodifiy kino"), KeyboardButton(text="📅 Kunning kinosi")],
-            [KeyboardButton(text="🔥 TOP kinolar"), KeyboardButton(text="🎯 Menga mos kino")],
-            [KeyboardButton(text="⭐ Sevimlilarim"), KeyboardButton(text="📊 Statistikam")],
-            [KeyboardButton(text="📝 Kino so'rash"), KeyboardButton(text="🤝 Do'stni taklif qilish")],
-            [KeyboardButton(text="💎 Premium"), KeyboardButton(text="🔎 Qidirish yordami")],
-        ],
+        keyboard=keyboard,
         resize_keyboard=True,
     )
 
@@ -798,14 +814,9 @@ async def start_cmd(message: Message, command: CommandObject | None = None):
     if message.from_user.id == ADMIN_ID:
         await message.answer(
             f"👑 <b>Xush kelibsiz, Admin {message.from_user.full_name}!</b>\n\n"
-            "Admin paneldan foydalanish uchun quyidagi tugmani bosing:",
+            "Admin paneli pastki menyuga joylandi:",
             parse_mode="HTML",
             reply_markup=get_admin_keyboard(),
-        )
-        await message.answer(
-            "🛠 <b>Admin boshqaruv paneli</b>\nKerakli amalni tanlang:",
-            parse_mode="HTML",
-            reply_markup=build_admin_panel_keyboard(),
         )
         return
 
@@ -817,11 +828,6 @@ async def start_cmd(message: Message, command: CommandObject | None = None):
         parse_mode="HTML",
         reply_markup=build_user_reply_keyboard(),
     )
-    await message.answer(
-        "🎬 <b>Gold Cinema paneli</b>\nTezkor bo'limni tanlang:",
-        parse_mode="HTML",
-        reply_markup=build_main_menu_keyboard(),
-    )
 
 
 @dp.message(F.text == "👑 Admin panel")
@@ -831,7 +837,7 @@ async def admin_panel_msg(message: Message):
     await message.answer(
         "🛠 <b>Admin Boshqaruv Paneli:</b>",
         parse_mode="HTML",
-        reply_markup=build_admin_panel_keyboard(),
+        reply_markup=build_admin_reply_keyboard(),
     )
 
 
@@ -842,7 +848,7 @@ async def user_panel_msg(message: Message):
     await message.answer(
         "🎬 <b>Foydalanuvchi paneli</b>\nKerakli bo'limni tanlang:",
         parse_mode="HTML",
-        reply_markup=build_main_menu_keyboard(),
+        reply_markup=build_user_reply_keyboard(),
     )
 
 
@@ -852,10 +858,10 @@ async def user_panel_callback(call: CallbackQuery):
     message = get_callback_message(call)
     if message is None:
         return
-    await message.edit_text(
+    await message.answer(
         "🎬 <b>Foydalanuvchi paneli</b>\nKerakli bo'limni tanlang:",
         parse_mode="HTML",
-        reply_markup=build_main_menu_keyboard(),
+        reply_markup=build_user_reply_keyboard(),
     )
 
 
@@ -867,10 +873,10 @@ async def admin_panel_callback(call: CallbackQuery):
     await call.answer()
     message = get_callback_message(call)
     if message:
-        await message.edit_text(
+        await message.answer(
             "🛠 <b>Admin boshqaruv paneli</b>\nKerakli amalni tanlang:",
             parse_mode="HTML",
-            reply_markup=build_admin_panel_keyboard(),
+            reply_markup=build_admin_reply_keyboard(),
         )
 
 
@@ -1173,7 +1179,7 @@ async def save_add_movie_field(message: Message, state: FSMContext, field: str, 
     if not value:
         await message.answer("⚠️ Bu maydon bo'sh bo'lmasligi kerak.")
         return
-    await state.update_data(data={field: value})
+    await state.update_data({field: value})
     await state.set_state(next_state)
     await message.answer(prompt)
 
@@ -1745,9 +1751,11 @@ def parse_premiere_caption(caption: str) -> dict:
 
 
 def get_next_movie_code() -> str:
-    """Bazadagi eng katta raqamdan keyingi kodni qaytaradi."""
-    numeric_codes = [int(code) for code in MOVIES_DATABASE if str(code).isdigit()]
-    return str(max(numeric_codes, default=0) + 1)
+    """20 dan boshlab bazadagi birinchi bo'sh kino kodini qaytaradi."""
+    code = 20
+    while str(code) in MOVIES_DATABASE:
+        code += 1
+    return str(code)
 
 
 def parse_movie_caption(caption: str, fallback_name: str, code: str) -> dict:
@@ -1913,6 +1921,20 @@ async def daily_movie_msg(message: Message):
     await send_movie(message, code, MOVIES_DATABASE[code], message.from_user.id if message.from_user else None)
 
 
+@dp.message(F.text == "🎬 PREMYERA KINO")
+async def premiere_movie_msg(message: Message):
+    if not CURRENT_PREMIERE or CURRENT_PREMIERE not in MOVIES_DATABASE:
+        await message.answer("❌ Hozircha faol premyera yo'q.")
+        return
+    register_user(message.from_user)
+    await send_movie(
+        message,
+        CURRENT_PREMIERE,
+        MOVIES_DATABASE[CURRENT_PREMIERE],
+        message.from_user.id if message.from_user else None,
+    )
+
+
 @dp.message(F.text == "🔥 TOP kinolar")
 async def top_movies_msg(message: Message):
     ranked = sorted(
@@ -1977,6 +1999,14 @@ async def referral_msg(message: Message):
 @dp.message(F.text == "🔎 Qidirish yordami")
 async def search_help_msg(message: Message):
     await message.answer("🔎 Kino kodi yoki nomini chatga yozib yuboring.")
+
+
+@dp.message(F.text == "📞 Admin bilan bog'lanish")
+async def contact_admin_msg(message: Message):
+    if ADMIN_USERNAME:
+        await message.answer(f"📞 Admin bilan bog'lanish: https://t.me/{ADMIN_USERNAME}")
+    else:
+        await message.answer("⚠️ Admin username'i hali sozlanmagan.")
 
 
 @dp.callback_query(F.data == "menu_premiere")
@@ -2343,7 +2373,10 @@ async def main():
     me = await bot.get_me()
     BOT_USERNAME = me.username or ""
     print("Bot muvaffaqiyatli ishga tushdi...")
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
 
 if __name__ == "__main__":
     try:
