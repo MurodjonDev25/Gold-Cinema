@@ -9,9 +9,9 @@
       "janr": "Tarjima Qo'rqinchli",
       "davlat": "Britaniya, Tailand Va Daniya Kinostudiyalari Tomonidan Hamkorlikda Ishlab Chiqarilgan",
       "davomiyligi": "1 Soat 27 Minut",
-      "is_premium": false,
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     },
     "2": {
       "file_id": "BAACAgEAAxkBAAIGwmqg4HiGLfNoK2hR48wPs6DkU6l5AAKfAgACIcQ5R2bk0KgSv1LUPQQ",
@@ -22,9 +22,9 @@
       "janr": "Tarjima Qo'rqinchli",
       "davlat": "AQSH",
       "davomiyligi": "1 Soat 30 Minut",
-      "is_premium": false,
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     },
     "3": {
       "file_id": "BAACAgEAAxkBAAICPmqMbNWi0yQw3BtUZMe4hlrQgyT_AAKmAwACothRRMidliKEFjywPQQ",
@@ -35,9 +35,9 @@
       "janr": "Drama, Mistika",
       "davlat": "AQSH",
       "davomiyligi": "3 Soat 15 Minut",
-      "is_premium": false,
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     },
     "4": {
       "file_id": "BAACAgQAAxkBAAICy2qNYByn44-AczRcn6pXwA6HuFhqAALuFQACaLdgURYfYOuh3e8pPQQ",
@@ -48,9 +48,9 @@
       "janr": "Komediya, Jangari Sarguzasht",
       "davlat": "Yaponiya",
       "davomiyligi": "1 Soat 44 Minut",
-      "is_premium": false,
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     },
     "5": {
       "file_id": "BAACAgIAAxkBAAIDa2qNdMltNSLlqMa_-yfX1GYBp1Z2AALSWgACmjlpSQkITks366C-PQQ",
@@ -61,9 +61,9 @@
       "janr": "Tarjima Qo'rqinchli",
       "davlat": "AQSH",
       "davomiyligi": "1 Soat 28 Minut",
-      "is_premium": false,
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     },
     "6": {
       "file_id": "BAACAgQAAxkBAAIDb2qNqm4StSOh7zTpqVmDGZMGW6QrAALqCQACo2aJUxF0l3u5t9uqPQQ",
@@ -74,9 +74,9 @@
       "janr": "Tarjima Qo'rqinchli",
       "davlat": "AQSH",
       "davomiyligi": "1 Soat 30 Minut",
-      "is_premium": false,
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     },
     "7": {
       "file_id": "BAACAgIAAxkBAAIDpGqNzzw19vL5tNidgib0Pv07XUi5AAJOpAACCdpoS8mE8yxDAXA4PQQ",
@@ -87,9 +87,9 @@
       "janr": "Romantika, Drama",
       "davlat": "Italiya",
       "davomiyligi": "1 Soat 32 Minut",
-      "is_premium": false,
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     },
     "8": {
       "file_id": "BAACAgIAAxkBAAIF2WqbxuAuZQsILSXB9wT8A9YKyH_YAAI-qgACTj6hSIRpqnTl6l4XPQQ",
@@ -100,9 +100,9 @@
       "janr": "Jangari Fantastika",
       "davlat": "AQSH, Buyuk Britaniya",
       "davomiyligi": "1 Soat 25 Minut",
-      "is_premium": false,
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     },
     "9": {
       "file_id": "BAACAgIAAxkBAAIFnWqUdTyk-mNxlYwCcOnQNM1XpZWdAAJlqgACTj6hSLaS-Og5mK02PQQ",
@@ -113,9 +113,9 @@
       "janr": "Qo'rqinchli, Triller",
       "davlat": "AQSH",
       "davomiyligi": "1 Soat 29 Minut",
-      "is_premium": false,
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     },
     "10": {
       "file_id": "BAACAgEAAxkBAAIDcWqNrVFrgdkTm-q8oeT8cjTyean3AALOBAAC-sj4RAzcweghM14RPQQ",
@@ -126,9 +126,9 @@
       "janr": "Jangari, Dramma",
       "davlat": "AQSH",
       "davomiyligi": "2 Soat 21 Minut",
-      "is_premium": false,
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     },
     "11": {
       "file_id": "BAACAgUAAxkBAAIDc2qNraWEO3AAAWlHAceRVmRbhpiHjQAC7g8AAlG7oVRAfHnNHskHkz0E",
@@ -139,9 +139,9 @@
       "janr": "Qo`rqinchli Sagruzasht",
       "davlat": "Aqsh",
       "davomiyligi": "1 Soat 36 Minut",
-      "is_premium": false,
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     },
     "12": {
       "file_id": "BAACAgUAAxkBAAIDdGqNrnfdikFn4tDI8QSWfuCiQfoGAALyDwACUbuhVIrjAbbO2TvSPQQ",
@@ -152,9 +152,9 @@
       "janr": "Fantastika, Jangari",
       "davlat": "AQSH",
       "davomiyligi": "3 Soat 1 Minut",
-      "is_premium": false,
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     },
     "13": {
       "file_id": "BAACAgIAAxkBAAIFu2qbwsxSMelY0mG_kVE_cuu3JxnkAAJ6qQACQzvYSJAN9_dmsNAbPQQ",
@@ -165,9 +165,9 @@
       "janr": "Multfilm, Sarguzasht",
       "davlat": "AQSH, Germaniya, Hindiston",
       "davomiyligi": "1 Soat 31 Minut",
-      "is_premium": false,
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     },
     "14": {
       "file_id": "BAACAgIAAxkBAAIFwWqbxXf8JOXZFQSM4rlwPPonp6O-AAJDmwACBobhSANYpeMwg_99PQQ",
@@ -178,35 +178,35 @@
       "janr": "Multfilm, Sarguzasht,",
       "davlat": "Fransiya",
       "davomiyligi": "1 Soat 12 Minut",
-      "is_premium": false,
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     },
     "15": {
-      "file_id": "BAACAgIAAxkBAAIG0GqFzidURAPi-cY9sI6mQyMkyKV3AALnIAACyWSwUiCatVZuzQdEPQQ",
-      "name": "Jungliga Xush Kelibsiz",
+      "file_id": "BAACAgUAAxkBAAIJCGq7QmXtRHyhopaJ2QHZMwFjCiGxAAL2DAACvm4JVPV6TChLzLFCPQQ",
+      "name": "Qaytarib Bo'lmas",
       "til": "O'zbek Tilida",
       "sifat": "1080P",
       "yil": "2026",
-      "janr": "Komediya, Sarguzasht",
-      "davlat": "Hindiston",
-      "davomiyligi": "2 Soat 43 Minut",
-      "is_premium": false,
+      "janr": "Krminal, Dramma",
+      "davlat": "Fransiya",
+      "davomiyligi": "1 Soat 37 Minut",
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     },
     "16": {
-      "file_id": "BAACAgIAAxkBAAICjWptfbcZpvvHIYR92dfV9ZgdM3UjAAL6bwACrRLgSofr7BQLsU3GPQQ",
-      "name": "Chumoli Odam",
+      "file_id": "BAACAgQAAxkBAAIJCmq7RAR1bN7FUgG4sH3_8Y_mvTTEAAIpGAAC4zCZUtS4mXHsficNPQQ",
+      "name": "Olov",
       "til": "O'zbek Tilida",
-      "sifat": "720P",
-      "yil": "2015",
-      "janr": "Fantastika, Triller",
-      "davlat": "AQSH",
-      "davomiyligi": "1 Soat 56 Minut",
-      "is_premium": false,
+      "sifat": "1080P",
+      "yil": "2024",
+      "janr": "Ujas, Triller",
+      "davlat": "Qirg'iston",
+      "davomiyligi": "1 Soat 43 Minut",
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     },
     "17": {
       "file_id": "BAACAgQAAxkBAAIG6Gqm3EvfZmsUAia9Ud7GnyjJSqyvAAJTGQACO_hgUAABUlFY9cN0Az0E",
@@ -217,9 +217,9 @@
       "janr": "Fantaziya Drama",
       "davlat": "Meksika",
       "davomiyligi": "1 Soat 58 Minut",
-      "is_premium": false,
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     },
     "18": {
       "file_id": "BAACAgIAAxkBAAIG6mqm4WdN9VqW31Z_qTmAtoOFoEzzAAKHqQAChUY5Sej4DmeSwBJrPQQ",
@@ -230,22 +230,22 @@
       "janr": "Fantastika, Jangari",
       "davlat": "AQSH",
       "davomiyligi": "2 Soat 16 Minut",
-      "is_premium": false,
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     },
     "19": {
-       "file_id": "BAACAgQAAxkBAAIG7Gqm7aPiSXKYy3Pk9PLxIR3QxQABmQACcCMAAog_gVMkIp7Lbq-wRD0E",
-        "name": "To'rt devor orasida",
-        "til": "O'zbek tilida",
-        "sifat": "1080p",
-        "yil": "2025",
-        "janr": "Drama, Triller",
-        "davlat": "Janubiy Koreya",
-        "davomiyligi": "1 soat 58 minut",
-      "is_premium": false,
+      "file_id": "BAACAgQAAxkBAAIG7Gqm7aPiSXKYy3Pk9PLxIR3QxQABmQACcCMAAog_gVMkIp7Lbq-wRD0E",
+      "name": "To'rt Devor Orasida",
+      "til": "O'zbek Tilida",
+      "sifat": "1080P",
+      "yil": "2025",
+      "janr": "Drama, Triller",
+      "davlat": "Janubiy Koreya",
+      "davomiyligi": "1 Soat 58 Minut",
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     },
     "20": {
       "file_id": "BAACAgQAAxkBAAIHVGqvsnZTBzvr7ePv9aPZqJjLOwRiAAJGIQAC-gyAUWvwB148Man5PQQ",
@@ -256,9 +256,9 @@
       "janr": "Qo'rqinchli, Sarguzasht",
       "davlat": "Irlandiya Va Ispaniya",
       "davomiyligi": "2 Soat 15 Daqiqa",
-      "is_premium": false,
       "is_premiere": false,
-      "trailer_file_id": null
+      "trailer_file_id": null,
+      "media_type": "video"
     }
   },
   "premium_users": [
@@ -322,6 +322,7 @@
   "referrals": {},
   "referred_by": {},
   "current_premiere": "55",
+  "pending_ai_recommendations": {},
   "ratings": {
     "1": {
       "likes": [],
