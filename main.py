@@ -112,10 +112,6 @@ class AddMovie(StatesGroup):
     is_premium = State()
 
 
-class ReplaceMovieFile(StatesGroup):
-    code = State()
-
-
 class DeleteMovie(StatesGroup):
     code = State()
 
@@ -311,13 +307,13 @@ MOVIES_DATABASE = {
     },
     "15": {
         "file_id": "BAACAgIAAxkBAAIG0GqFzidURAPi-cY9sI6mQyMkyKV3AALnIAACyWSwUiCatVZuzQdEPQQ",
-        "name": "Sidjin 1 Qismi",
+        "name": "Jungliga xush kelibsiz",
         "til": "O'zbek tilida",
         "sifat": "1080p",
-        "yil": "2014",
-        "janr": "detektiv, drama",
-        "davlat": "AQSH",
-        "davomiyligi": "2 soat 56 minut",
+        "yil": "2026",
+        "janr": "komediya, sarguzasht",
+        "davlat": "Hindiston",
+        "davomiyligi": "2 soat 43 minut",
         "is_premium": False,
     },
     "16": {
@@ -363,20 +359,17 @@ MOVIES_DATABASE = {
         "davlat": "Janubiy Koreya",
         "davomiyligi": "1 soat 58 minut",
         "is_premium": False,
-        
-        
-        "20":{
-            "file_id": "BAACAgQAAxkBAAIHVGqvsnZTBzvr7ePv9aPZqJjLOwRiAAJGIQAC-gyAUWvwB148Man5PQQ",
-                    "name": "Li Kronning Mumiyosi",
-                    "til": "O'zbek tilida",
-                    "sifat": "1080p",
-                    "yil": "2025",
-                    "janr": "Qo'rqinchli, Sarguzasht",
-                    "davlat": " Irlandiya Va Ispaniya.",
-                    "davomiyligi": "2 soat 15 daqiqa",
-                    "is_premium": False,
-        }
-            
+    },
+    "20": {
+        "file_id": "BAACAgQAAxkBAAIHVGqvsnZTBzvr7ePv9aPZqJjLOwRiAAJGIQAC-gyAUWvwB148Man5PQQ",
+        "name": "Li Kronning Mumiyosi",
+        "til": "O'zbek tilida",
+        "sifat": "1080p",
+        "yil": "2025",
+        "janr": "Qo'rqinchli, Sarguzasht",
+        "davlat": "Irlandiya va Ispaniya",
+        "davomiyligi": "2 soat 15 daqiqa",
+        "is_premium": False,
     },
     
    
@@ -415,6 +408,14 @@ def normalize_movie_schema() -> None:
     for movie in MOVIES_DATABASE.values():
         if "Janr" in movie and "janr" not in movie:
             movie["janr"] = movie.pop("Janr")
+        movie.setdefault("likes", set())
+        movie.setdefault("dislikes", set())
+        movie.setdefault("is_premium", False)
+        movie.setdefault("is_premiere", False)
+        movie.setdefault("trailer_file_id", None)
+        movie.setdefault("media_type", "video")
+        movie["likes"] = set(movie.get("likes") or [])
+        movie["dislikes"] = set(movie.get("dislikes") or [])
 
 
 def save_data() -> None:
@@ -494,6 +495,7 @@ def load_data() -> None:
                 MOVIES_DATABASE[str(code)].setdefault("dislikes", set())
                 MOVIES_DATABASE[str(code)].setdefault("is_premiere", False)
                 MOVIES_DATABASE[str(code)].setdefault("trailer_file_id", None)
+                MOVIES_DATABASE[str(code)].setdefault("media_type", "video")
         for code, ratings in data.get("ratings", {}).items():
             if code in MOVIES_DATABASE:
                 MOVIES_DATABASE[code]["likes"] = set(ratings.get("likes", []))
@@ -528,6 +530,14 @@ def register_user(user) -> bool:
             "phone": "Mavjud emas",
             "joined": datetime.now().strftime("%d.%m.%Y | %H:%M"),
         }
+    else:
+        # Username yoki ism keyinchalik o'zgarsa, bazada eski profil qolib ketmasin.
+        USER_INFO[user.id].update(
+            {
+                "name": user.full_name or USER_INFO[user.id].get("name", "Noma'lum"),
+                "username": f"@{user.username}" if user.username else "Mavjud emas",
+            }
+        )
     save_data()
     return is_new
 
@@ -622,21 +632,13 @@ def build_movie_keyboard(code: str, movie: dict, user_id: int | None = None) -> 
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-def get_admin_keyboard():
-    return build_admin_reply_keyboard()
-
-
 def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="👑 Admin panel"), KeyboardButton(text="👤 Foydalanuvchi paneli")],
-            [KeyboardButton(text="👥 Foydalanuvchilar ro'yxati"), KeyboardButton(text="📊 Bot statistikasi")],
-            [KeyboardButton(text="💎 Premium users"), KeyboardButton(text="📥 Bazani yuklab olish")],
-            [KeyboardButton(text="➕ Kino qo'shish"), KeyboardButton(text="✏️ Kino tahrirlash")],
-            [KeyboardButton(text="🗑 Kino o'chirish"), KeyboardButton(text="🎬 Premyera sozlash")],
-            [KeyboardButton(text="👑 Premium berish/olish"), KeyboardButton(text="📚 Kino ro'yxati")],
-            [KeyboardButton(text="📢 Xabar yuborish"), KeyboardButton(text="🗳 So'rovnoma yuborish")],
-            [KeyboardButton(text="💾 Ma'lumotlarni saqlash")],
+            [
+                KeyboardButton(text="👑 Admin panel"),
+                KeyboardButton(text="👤 Foydalanuvchi paneli"),
+            ],
         ],
         resize_keyboard=True,
     )
@@ -648,13 +650,11 @@ def build_user_reply_keyboard() -> ReplyKeyboardMarkup:
         keyboard.append([KeyboardButton(text="🎬 PREMYERA KINO")])
     keyboard += [
         [KeyboardButton(text="🎲 Tasodifiy kino"), KeyboardButton(text="📅 Kunning kinosi")],
-        [KeyboardButton(text="🔥 TOP kinolar"), KeyboardButton(text="🎯 Menga mos kino")],
-        [KeyboardButton(text="⭐ Sevimlilarim"), KeyboardButton(text="📊 Statistikam")],
-        [KeyboardButton(text="📝 Kino so'rash"), KeyboardButton(text="🤝 Do'stni taklif qilish")],
-        [KeyboardButton(text="💎 Premium"), KeyboardButton(text="🔎 Qidirish yordami")],
+        [KeyboardButton(text="🔥 TOP kinolar"), KeyboardButton(text="⭐ Sevimlilarim")],
+        [KeyboardButton(text="📚 Kino ro'yxati")],
+        [KeyboardButton(text="📝 Kino so'rash")],
+        [KeyboardButton(text="💎 Premium")],
     ]
-    if ADMIN_USERNAME:
-        keyboard.append([KeyboardButton(text="📞 Admin bilan bog'lanish")])
     return ReplyKeyboardMarkup(
         keyboard=keyboard,
         resize_keyboard=True,
@@ -675,71 +675,53 @@ def build_main_menu_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(text="🔥 TOP kinolar", callback_data="menu_top"),
-            InlineKeyboardButton(text="🎯 Menga mos kino", callback_data="menu_recommend"),
-        ],
-        [
             InlineKeyboardButton(text="⭐ Sevimlilarim", callback_data="menu_favorites"),
-            InlineKeyboardButton(text="📊 Statistikam", callback_data="menu_stats"),
         ],
         [
-            InlineKeyboardButton(text="📝 Kino so'rash", callback_data="menu_request"),
-            InlineKeyboardButton(text="🤝 Do'stni taklif qilish", callback_data="menu_referral"),
+            InlineKeyboardButton(text="📚 Kino ro'yxati", callback_data="menu_movies"),
         ],
+        [InlineKeyboardButton(text="📝 Kino so'rash", callback_data="menu_request")],
         [
             InlineKeyboardButton(text="💎 Premium", callback_data="premium_info"),
-            InlineKeyboardButton(text="🔎 Qidirish yordami", callback_data="menu_search_help"),
         ],
     ]
-    if ADMIN_USERNAME:
-        keyboard.append(
-            [InlineKeyboardButton(text="📞 Admin bilan bog'lanish", url=f"https://t.me/{ADMIN_USERNAME}")]
-        )
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
 def build_admin_panel_keyboard() -> InlineKeyboardMarkup:
     keyboard = [
         [
-            InlineKeyboardButton(text="👥 Foydalanuvchilar ro'yxati", callback_data="admin_users"),
-            InlineKeyboardButton(text="📊 Bot statistikasi", callback_data="admin_stats"),
-        ],
-        [
             InlineKeyboardButton(text="➕ Kino qo'shish", callback_data="admin_add"),
             InlineKeyboardButton(text="✏️ Tahrirlash", callback_data="admin_edit"),
         ],
         [
             InlineKeyboardButton(text="🗑 Kino o'chirish", callback_data="admin_delete"),
+            InlineKeyboardButton(text="📚 Kino ro'yxati", callback_data="admin_movies"),
+        ],
+        [
             InlineKeyboardButton(text="🎬 Premyera", callback_data="admin_premiere"),
         ],
         [
             InlineKeyboardButton(text="👑 Premium berish/olish", callback_data="admin_premium_manage"),
-            InlineKeyboardButton(text="📚 Kino ro'yxati", callback_data="admin_movies"),
         ],
         [
             InlineKeyboardButton(text="📢 Xabar yuborish (Broadcast)", callback_data="admin_broadcast"),
-            InlineKeyboardButton(text="🗳 So'rovnoma yuborish", callback_data="admin_poll"),
-        ],
-        [
-            InlineKeyboardButton(text="💎 Premium users", callback_data="admin_premium"),
-            InlineKeyboardButton(text="📥 Bazani yuklab olish", callback_data="admin_export"),
-        ],
-        [
-            InlineKeyboardButton(text="💾 Saqlash", callback_data="admin_save"),
-            InlineKeyboardButton(text="👤 User paneli", callback_data="user_panel"),
         ],
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
 def find_movie_matches(query: str) -> dict:
-    query = query.strip().lower()
+    query = query.strip().casefold()
     if not query:
         return {}
     return {
         code: m
         for code, m in MOVIES_DATABASE.items()
-        if query in str(m.get("name", "")).lower()
-        or query in str(m.get("janr", "")).lower()
+        if any(
+            query in str(m.get(field, "")).casefold()
+            for field in ("name", "janr", "davlat", "til", "yil", "sifat")
+        )
     }
 
 
@@ -750,8 +732,17 @@ def movie_code_sort_key(code: str) -> tuple[int, int | str]:
 
 def build_results_text(title: str, matches: dict) -> str:
     text = f"{title}\n\n"
-    for code, movie in matches.items():
-        text += f"🎬 <b>{movie['name']}</b> — kodi: <code>{code}</code> ({movie['yil']})\n"
+    for code in sorted(matches, key=movie_code_sort_key):
+        movie = matches[code]
+        line = (
+            f"🎬 <b>{escape(str(movie.get('name', 'Nomsiz')))}</b> — "
+            f"kodi: <code>{escape(str(code))}</code> "
+            f"({escape(str(movie.get('yil', 'Noma\'lum')))})\n"
+        )
+        if len(text) + len(line) > 3800:
+            text += "\n⚠️ <i>Natijalar ko'pligi sababli ro'yxat qisqartirildi.</i>"
+            break
+        text += line
     text += "\n👇 <i>Kino ko'rish uchun uning kodini chatga yuboring!</i>"
     return text
 
@@ -816,7 +807,7 @@ async def start_cmd(message: Message, command: CommandObject | None = None):
             f"👑 <b>Xush kelibsiz, Admin {message.from_user.full_name}!</b>\n\n"
             "Admin paneli pastki menyuga joylandi:",
             parse_mode="HTML",
-            reply_markup=get_admin_keyboard(),
+            reply_markup=build_admin_reply_keyboard(),
         )
         return
 
@@ -835,9 +826,9 @@ async def admin_panel_msg(message: Message):
     if message.from_user is None or message.from_user.id != ADMIN_ID:
         return
     await message.answer(
-        "🛠 <b>Admin Boshqaruv Paneli:</b>",
+        "🛠 <b>Admin boshqaruv paneli</b>\nKerakli amalni tanlang:",
         parse_mode="HTML",
-        reply_markup=build_admin_reply_keyboard(),
+        reply_markup=build_admin_panel_keyboard(),
     )
 
 
@@ -873,10 +864,10 @@ async def admin_panel_callback(call: CallbackQuery):
     await call.answer()
     message = get_callback_message(call)
     if message:
-        await message.answer(
+        await message.edit_text(
             "🛠 <b>Admin boshqaruv paneli</b>\nKerakli amalni tanlang:",
             parse_mode="HTML",
-            reply_markup=build_admin_reply_keyboard(),
+            reply_markup=build_admin_panel_keyboard(),
         )
 
 
@@ -1087,22 +1078,6 @@ async def premium_users_msg(message: Message):
     )
 
 
-@dp.message(F.text == "📥 Bazani yuklab olish")
-async def export_database_msg(message: Message):
-    if message.from_user is None or message.from_user.id != ADMIN_ID:
-        return
-    save_data()
-    await message.answer_document(
-        document=FSInputFile(USERS_DATA_FILE),
-        caption="📥 Foydalanuvchilar bazasi (users_database.json)",
-        reply_markup=build_admin_reply_keyboard(),
-    )
-    await message.answer_document(
-        document=FSInputFile(DATA_FILE),
-        caption="📥 Kino va bot bazasi (gold_cinema_data.json)",
-    )
-
-
 @dp.message(F.text == "💾 Ma'lumotlarni saqlash")
 async def save_database_msg(message: Message):
     if message.from_user is None or message.from_user.id != ADMIN_ID:
@@ -1124,6 +1099,15 @@ def build_movie_admin_list() -> str:
         if movie.get("is_premiere"):
             badges.append("🎬")
         lines.append(f"<code>{code}</code> — {escape(str(movie.get('name', 'Nomsiz')))} {' '.join(badges)}")
+    return "\n".join(lines)[:4000]
+
+
+def build_movie_catalog_list() -> str:
+    lines = [f"📚 <b>Barcha kinolar ({len(MOVIES_DATABASE)} ta)</b>\n"]
+    for code in sorted(MOVIES_DATABASE, key=movie_code_sort_key):
+        movie = MOVIES_DATABASE[code]
+        lines.append(f"🎬 <b>{escape(str(movie.get('name', 'Nomsiz')))}</b> — kodi: <code>{code}</code>")
+    lines.append("\n👇 Kino ko'rish uchun uning kodini chatga yuboring.")
     return "\n".join(lines)[:4000]
 
 
@@ -1705,114 +1689,10 @@ async def admin_panel_back(call: CallbackQuery):
     )
 
 
-# ======================================================================================
-#  ADMIN UCHUN: FAYLLARDAN FILE_ID OLISH + PREMYERA KINO YUKLASH
-# ======================================================================================
-
-def parse_premiere_caption(caption: str) -> dict:
-    """
-    Caption formati:
-    premyera
-    Nomi: ...
-    Til: ...
-    Sifat: ...
-    Yil: ...
-    Janr: ...
-    Davlat: ...
-    Davomiyligi: ...
-    (Nomi dan boshqa qatorlar ixtiyoriy — yozilmasa standart qiymat qo'yiladi)
-    """
-    fields = {
-        "name": "Yangi premyera kino",
-        "til": "O'zbek tilida",
-        "sifat": "1080p",
-        "yil": str(date.today().year),
-        "janr": "Premyera",
-        "davlat": "Noma'lum",
-        "davomiyligi": "Noma'lum",
-    }
-    key_map = {
-        "nomi": "name",
-        "til": "til",
-        "sifat": "sifat",
-        "yil": "yil",
-        "janr": "janr",
-        "davlat": "davlat",
-        "davomiyligi": "davomiyligi",
-    }
-    for line in caption.splitlines()[1:]:
-        if ":" not in line:
-            continue
-        key, _, value = line.partition(":")
-        key = key.strip().lower()
-        if key in key_map and value.strip():
-            fields[key_map[key]] = value.strip()
-    return fields
-
-
 def get_next_movie_code() -> str:
-    """20 dan boshlab bazadagi birinchi bo'sh kino kodini qaytaradi."""
-    code = 20
-    while str(code) in MOVIES_DATABASE:
-        code += 1
-    return str(code)
-
-
-def parse_movie_caption(caption: str, fallback_name: str, code: str) -> dict:
-    """Oddiy kino captionidan nom va ixtiyoriy metadata ma'lumotlarini oladi."""
-    fields = parse_premiere_caption(caption) if caption.strip() else {
-        "name": fallback_name,
-        "til": "O'zbek tilida",
-        "sifat": "1080p",
-        "yil": str(date.today().year),
-        "janr": "Noma'lum",
-        "davlat": "Noma'lum",
-        "davomiyligi": "Noma'lum",
-    }
-    if fields["name"] == "Yangi premyera kino":
-        for line in caption.splitlines():
-            clean_line = line.strip().strip('"“”')
-            if (
-                clean_line
-                and ":" not in clean_line
-                and not clean_line.lower().startswith("premyera")
-            ):
-                fields["name"] = clean_line
-                break
-    if fields["name"] == "Yangi premyera kino":
-        fields["name"] = fallback_name or f"Kino {code}"
-    return fields
-
-
-async def add_movie_from_media(
-    message: Message,
-    file_id: str,
-    fallback_name: str,
-    media_type: str | None = None,
-) -> str:
-    """Admin yuborgan video yoki hujjatni keyingi kod bilan bazaga qo'shadi."""
-    code = get_next_movie_code()
-    fields = parse_movie_caption(message.caption or "", fallback_name, code)
-    fields = {key: capitalize_movie_text(value) for key, value in fields.items()}
-    MOVIES_DATABASE[code] = {
-        "file_id": file_id,
-        "name": fields["name"],
-        "til": fields["til"],
-        "sifat": fields["sifat"],
-        "yil": fields["yil"],
-        "janr": fields["janr"],
-        "davlat": fields["davlat"],
-        "davomiyligi": fields["davomiyligi"],
-        "is_premium": False,
-        "is_premiere": False,
-        "likes": set(),
-        "dislikes": set(),
-        "trailer_file_id": None,
-    }
-    if media_type:
-        MOVIES_DATABASE[code]["media_type"] = media_type
-    save_data()
-    return code
+    """Eng katta raqamli kino kodidan keyingi kodni qaytaradi."""
+    numeric_codes = [int(code) for code in MOVIES_DATABASE if str(code).isdigit()]
+    return str(max(numeric_codes, default=0) + 1)
 
 
 @dp.message(F.video)
@@ -1910,6 +1790,28 @@ async def send_random_movie(event):
         await send_movie(event, code, movie, event.from_user.id)
 
 
+@dp.message(F.text == "📚 Kino ro'yxati")
+async def movie_catalog_msg(message: Message):
+    register_user(message.from_user)
+    if not MOVIES_DATABASE:
+        await message.answer("❌ Hozircha bazada kinolar mavjud emas.")
+        return
+    await message.answer(build_movie_catalog_list(), parse_mode="HTML")
+
+
+@dp.callback_query(F.data == "menu_movies")
+async def movie_catalog_callback(call: CallbackQuery):
+    register_user(call.from_user)
+    await call.answer()
+    message = get_callback_message(call)
+    if message is None:
+        return
+    if not MOVIES_DATABASE:
+        await message.answer("❌ Hozircha bazada kinolar mavjud emas.")
+        return
+    await message.answer(build_movie_catalog_list(), parse_mode="HTML")
+
+
 @dp.message(F.text == "📅 Kunning kinosi")
 async def daily_movie_msg(message: Message):
     if not MOVIES_DATABASE:
@@ -1944,7 +1846,7 @@ async def top_movies_msg(message: Message):
     )[:10]
     text = "🔥 <b>TOP kinolar:</b>\n\n"
     for idx, (code, movie) in enumerate(ranked, 1):
-        text += f"{idx}. <b>{movie['name']}</b> — 👍 {len(movie['likes'])} | kodi: <code>{code}</code>\n"
+        text += f"{idx}. <b>{escape(str(movie['name']))}</b> — 👍 {len(movie['likes'])} | kodi: <code>{code}</code>\n"
     await message.answer(text, parse_mode="HTML")
 
 
