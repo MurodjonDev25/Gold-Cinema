@@ -126,6 +126,34 @@ async def get_ai_movie_recommendation(mood: str) -> tuple[str, str]:
     if not movies:
         raise ValueError("Kino katalogi bo'sh.")
 
+    if not OPENAI_API_KEY:
+        mood_words = set(re.findall(r"[a-zA-ZА-Яа-яА-ЯёЁo'`]+", mood.lower()))
+        preference_words = {
+            "qo'rqinchli": {"qo'rqinchli", "horror", "dahshat", "qonli", "hayajonli"},
+            "kulgili": {"kulgili", "komediya", "kulgi", "quvnoq"},
+            "jangari": {"jangari", "jang", "urush", "action", "harakat"},
+            "romantik": {"romantik", "sevgi", "muhabbat"},
+            "drama": {"drama", "ta'sirli", "qayg'uli"},
+        }
+        ranked_movies = []
+        for movie in movies:
+            searchable_text = " ".join(
+                [movie["title"], movie["genres"], movie["year"]]
+            ).lower()
+            score = sum(
+                1 for words in preference_words.values()
+                if mood_words.intersection(words)
+                and any(word in searchable_text for word in words)
+            )
+            ranked_movies.append((score, movie))
+        best_score = max(score for score, _ in ranked_movies)
+        candidates = [movie for score, movie in ranked_movies if score == best_score]
+        selected_movie = random.choice(candidates)
+        return (
+            selected_movie["code"],
+            f"Kayfiyatingizga mos ravishda {selected_movie['genres'] or 'qiziqarli'} janridagi kino tanlandi.",
+        )
+
     request_body = {
         "model": OPENAI_MODEL,
         "temperature": 0.2,
@@ -1023,9 +1051,6 @@ async def prompt_ai_recommendation(message: Message, state: FSMContext) -> None:
     if message.from_user is None:
         return
     has_free_ai_access = has_premium_access(message.from_user.id)
-    if not OPENAI_API_KEY:
-        await message.answer("⚠️ AI tavsiya hozircha sozlanmagan. Admin bilan bog'laning.")
-        return
     if not has_free_ai_access and (not CARD_NUMBER or ADMIN_ID == 0):
         await message.answer("⚠️ To'lov ma'lumotlari sozlanmagan. Admin bilan bog'laning.")
         return
