@@ -1151,6 +1151,10 @@ async def premium_plan_selected(call: CallbackQuery, state: FSMContext):
 async def premium_receipt_received(message: Message, state: FSMContext):
     if message.from_user is None or ADMIN_ID == 0:
         return
+    if message.from_user.id == ADMIN_ID:
+        await state.clear()
+        await message.answer("✅ Siz adminsiz. AI tavsiya uchun to'lov cheki kerak emas.")
+        return
     data = await state.get_data()
     is_ai_request = data.get("payment_kind") == "ai_recommendation"
     mood = str(data.get("mood", "")).strip()
