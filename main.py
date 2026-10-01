@@ -1197,7 +1197,7 @@ async def prompt_ai_recommendation(message: Message, state: FSMContext) -> None:
     await state.set_state(AIRecommendationState.mood)
     await message.answer(
         "🤖 <b>AI tavsiya</b>\n\n"
-        "Kino janrini yozing: <i>Jangari</i>, <i>Komediya</i>, <i>Romantik</i>,  <i> Multfilm, animatsiya<i>,<i>Qo'rqinchli</i>.\n\n"
+        "Kino janrini yozing: <i>Jangari</i>, <i>Komediya</i>, <i>Romantik</i>, <i>Multfilm, animatsiya</i>, <i>Qo'rqinchli</i>.\n\n"
         "Faqat janrni yozing — men sizga mos kinoni topib beraman."
         + ("\n\n✅ Siz uchun AI tavsiya bepul." if has_free_ai_access else ""),
         parse_mode="HTML",
