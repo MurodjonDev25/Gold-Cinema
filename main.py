@@ -209,6 +209,25 @@ async def send_ai_recommendation(user_id: int, mood: str) -> None:
         f"🔎 Kino kodi: <code>{escape(code)}</code>",
         parse_mode="HTML",
     )
+    if movie.get("media_type") == "document":
+        await bot.send_document(
+            user_id,
+            document=movie["file_id"],
+            caption=build_caption(code, movie),
+            parse_mode="HTML",
+            reply_markup=build_movie_keyboard(code, movie, user_id),
+        )
+    else:
+        await bot.send_video(
+            user_id,
+            video=movie["file_id"],
+            caption=build_caption(code, movie),
+            parse_mode="HTML",
+            reply_markup=build_movie_keyboard(code, movie, user_id),
+        )
+    VIEWS[user_id] = VIEWS.get(user_id, 0) + 1
+    register_daily_view(user_id)
+    save_data()
 
 
 class AddMovie(StatesGroup):
