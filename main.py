@@ -1193,6 +1193,7 @@ async def prompt_ai_recommendation(message: Message, state: FSMContext) -> None:
     if message.from_user.id in PENDING_AI_RECOMMENDATIONS:
         await message.answer("⏳ Oldingi AI tavsiya to'lovingiz admin tasdig'ini kutmoqda.")
         return
+    await state.clear()
     await state.set_state(AIRecommendationState.mood)
     await message.answer(
         "🤖 <b>AI tavsiya</b>\n\n"
@@ -2771,12 +2772,8 @@ def looks_like_ai_movie_request(text: str) -> bool:
     if not normalized_text:
         return False
 
-    normalized_text = re.sub(r"[^a-zA-ZА-Яа-я0-9'\s,./|&+-]", " ", normalized_text)
-    normalized_text = re.sub(r"\s+", " ", normalized_text).strip()
-    if not normalized_text:
-        return False
-
     mood_words = {
+       
         "kulgili",
         "hayajonli",
         "qayguli",
@@ -2796,7 +2793,6 @@ def looks_like_ai_movie_request(text: str) -> bool:
         "animatsiya",
         "anime",
         "cartoon",
-        "sokin",
     }
     request_phrases = (
         "ko'rgim",
@@ -2816,24 +2812,15 @@ def looks_like_ai_movie_request(text: str) -> bool:
         "xohlayman",
         "xohlayapman",
         "qaysi",
-        "toping",
-        "topib",
-        "tanla",
-        "bering",
     )
 
-    tokens = {token.strip(" ,./|&+-") for token in normalized_text.split() if token.strip(" ,./|&+-")}
-    exact_match = normalized_text in mood_words or any(token in mood_words for token in tokens)
-    if exact_match:
+    matched_word = next((word for word in mood_words if normalized_text == word), None)
+    if matched_word is not None:
         return True
 
-    has_mood = any(token in mood_words for token in tokens)
+    has_mood = any(word in normalized_text for word in mood_words)
     has_request = any(phrase in normalized_text for phrase in request_phrases)
-    if not has_mood:
-        return False
-
-    has_movie_context = "kino" in normalized_text or "film" in normalized_text or "kayfiyat" in normalized_text
-    return has_request or (has_movie_context and len(tokens) <= 8)
+    return has_mood and (has_request or "kino" in normalized_text or "film" in normalized_text or "kayfiyat" in normalized_text)
 
 
 @dp.message(StateFilter(None), F.text)
@@ -2841,6 +2828,9 @@ async def search_movie_by_name(message: Message, state: FSMContext):
     if message.text is None:
         return
     register_user(message.from_user)
+    current_state = await state.get_state()
+    if current_state is not None:
+        return
     if (
         message.from_user is not None
         and has_premium_access(message.from_user.id)
