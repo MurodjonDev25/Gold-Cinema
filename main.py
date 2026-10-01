@@ -143,13 +143,13 @@ async def get_ai_movie_recommendation(mood: str) -> tuple[str, str]:
     direct_genre = normalize_genre_input(mood)
     if direct_genre:
         genre_map = {
-            "qo'rqinchli": {"qo'rqinchli", "horror", "hayajonli", "dahshat", "qonli", "ujas"},
-            "kulgili": {"kulgili", "komediya", "kulgi", "quvnoq"},
-            "jangari": {"jangari", "urush", "action", "harakat", "sarguzasht"},
-            "romantik": {"romantik", "sevgi", "muhabbat", "love"},
-            "drama": {"drama", "ta'sirli", "qayg'uli", "fantaziya", "fentezi"},
-            "multfilm": {"multfilm", "animatsiya", "cartoon", "anime"},
-            "sokin": {"sokin", "sokinlik", "tinch", "chill"},
+            "qo'rqinchli": {"qo'rqinchli", "qorqinchli", "horror", "hayajonli", "dahshat", "qonli", "ujas", "thriller"},
+            "kulgili": {"kulgili", "komediya", "komedi", "kulgi", "quvnoq", "funny", "humor"},
+            "jangari": {"jangari", "jang", "urush", "action", "harakat", "sarguzasht", "adventure"},
+            "romantik": {"romantik", "romantika", "sevgi", "muhabbat", "love", "romance"},
+            "drama": {"drama", "ta'sirli", "qayg'uli", "fantaziya", "fentezi", "fantastika", "misteriya", "misteriyali"},
+            "multfilm": {"multfilm", "animatsiya", "cartoon", "anime", "animated"},
+            "sokin": {"sokin", "sokinlik", "tinch", "chill", "relax"},
         }
         genre_tokens = {token.strip() for token in re.split(r"[,/|&+\s]+", direct_genre) if token.strip()}
         resolved_genre = None
@@ -2772,27 +2772,40 @@ def looks_like_ai_movie_request(text: str) -> bool:
     if not normalized_text:
         return False
 
+    normalized_text = re.sub(r"[^a-zA-ZА-Яа-я0-9'\s,./|&+-]", " ", normalized_text)
+    normalized_text = re.sub(r"\s+", " ", normalized_text).strip()
+    if not normalized_text:
+        return False
+
     mood_words = {
-       
         "kulgili",
+        "komediya",
+        "komedi",
         "hayajonli",
         "qayguli",
         "romantik",
+        "romantika",
         "muhabbat",
         "jangari",
         "qo'rqinchli",
+        "qorqinchli",
         "horror",
         "drama",
-        "komediya",
-        "sarguzasht",
+        "fantastika",
         "fentezi",
+        "sarguzasht",
         "musiqali",
         "misteriyali",
+        "misteriya",
         "triller",
         "multfilm",
         "animatsiya",
         "anime",
         "cartoon",
+        "sokin",
+        "adventure",
+        "action",
+        "thriller",
     }
     request_phrases = (
         "ko'rgim",
@@ -2812,15 +2825,23 @@ def looks_like_ai_movie_request(text: str) -> bool:
         "xohlayman",
         "xohlayapman",
         "qaysi",
+        "toping",
+        "topib",
+        "tanla",
+        "bering",
     )
 
-    matched_word = next((word for word in mood_words if normalized_text == word), None)
-    if matched_word is not None:
+    tokens = {token.strip(" ,./|&+-") for token in normalized_text.split() if token.strip(" ,./|&+-")}
+    if normalized_text in mood_words or any(token in mood_words for token in tokens):
         return True
 
-    has_mood = any(word in normalized_text for word in mood_words)
+    has_mood = any(token in mood_words for token in tokens)
     has_request = any(phrase in normalized_text for phrase in request_phrases)
-    return has_mood and (has_request or "kino" in normalized_text or "film" in normalized_text or "kayfiyat" in normalized_text)
+    if not has_mood:
+        return False
+
+    has_movie_context = "kino" in normalized_text or "film" in normalized_text or "kayfiyat" in normalized_text
+    return has_request or (has_movie_context and len(tokens) <= 8)
 
 
 @dp.message(StateFilter(None), F.text)
