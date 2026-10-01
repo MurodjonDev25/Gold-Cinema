@@ -56,10 +56,6 @@ ADMIN_ID = get_int_env("ADMIN_ID", 0)
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "").lstrip("@")
 CARD_NUMBER = os.getenv("CARD_NUMBER", "").strip()
 CARD_NAME = os.getenv("CARD_NAME", "").strip()
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
-AI_RECOMMENDATION_PRICE = 2000
-AI_RECOMMENDATION_PRICE_LABEL = f"{AI_RECOMMENDATION_PRICE:,}".replace(",", " ")
 PREMIUM_PLANS = {
     "day": {"name": "1 kun — 2 000 so'm", "duration": timedelta(days=1)},
     "week": {"name": "1 hafta — 7 000 so'm", "duration": timedelta(days=7)},
@@ -88,10 +84,8 @@ VIEWS: dict[int, int] = {}              # {user_id: nechta kino ko'rgani (umumiy
 DAILY_VIEWS: dict[int, dict] = {}       # {user_id: {"date": "YYYY-MM-DD", "count": int}}
 REFERRALS: dict[int, set[int]] = {}     # {referrer_id: {taklif qilinganlar}}
 REFERRED_BY: dict[int, int] = {}        # {user_id: kim taklif qilgani}
-PENDING_AI_RECOMMENDATIONS: dict[int, dict[str, str]] = {}
 PREMIUM_SUBSCRIPTIONS: dict[int, str] = {}  # {user_id: amal qilish muddati (ISO datetime)}
 PENDING_PREMIUM_PAYMENTS: dict[str, dict] = {}
-AI_RECOMMENDATION_IN_PROGRESS: set[int] = set()
 
 CURRENT_PREMIERE: str | None = None     # Hozirgi premyera kino kodi
 DATA_FILE = os.path.join(BASE_DIR, "gold_cinema_data.json")
@@ -115,187 +109,6 @@ def premium_plans_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text="👑 1 yil — 50 000 so'm", callback_data="premium_plan:year")],
         ]
     )
-
-
-def normalize_genre_input(value: str) -> str:
-    normalized = value.casefold().replace("`", "'").strip()
-    if not normalized:
-        return ""
-    normalized = normalized.replace("janri", "").replace("janr", "").strip()
-    normalized = normalized.replace("&", ",").replace("/", ",")
-    normalized = re.sub(r"\s*,\s*", ",", normalized)
-    return normalized.strip(", .")
-
-
-async def get_ai_movie_recommendation(mood: str) -> tuple[str, str]:
-    movies = [
-        {
-            "code": code,
-            "title": str(movie.get("name", "Nomsiz")),
-            "genres": str(movie.get("janr", "")),
-            "year": str(movie.get("yil", "")),
-        }
-        for code, movie in MOVIES_DATABASE.items()
-    ]
-    if not movies:
-        raise ValueError("Kino katalogi bo'sh.")
-
-    direct_genre = normalize_genre_input(mood)
-    if direct_genre:
-        genre_map = {
-            "qo'rqinchli": {"qo'rqinchli", "qorqinchli", "horror", "hayajonli", "dahshat", "qonli", "ujas", "thriller"},
-            "kulgili": {"kulgili", "komediya", "komedi", "kulgi", "quvnoq", "funny", "humor"},
-            "jangari": {"jangari", "jang", "urush", "action", "harakat", "sarguzasht", "adventure"},
-            "romantik": {"romantik", "romantika", "sevgi", "muhabbat", "love", "romance"},
-            "drama": {"drama", "ta'sirli", "qayg'uli", "fantaziya", "fentezi", "fantastika", "misteriya", "misteriyali"},
-            "multfilm": {"multfilm", "animatsiya", "cartoon", "anime", "animated"},
-            "sokin": {"sokin", "sokinlik", "tinch", "chill", "relax"},
-        }
-        genre_tokens = {token.strip() for token in re.split(r"[,/|&+\s]+", direct_genre) if token.strip()}
-        resolved_genre = None
-        for key, aliases in genre_map.items():
-            if key in genre_tokens or any(token in aliases for token in genre_tokens):
-                resolved_genre = key
-                break
-
-        if resolved_genre:
-            candidates = [
-                movie for movie in movies
-                if any(alias in str(movie["genres"]).casefold() for alias in genre_map[resolved_genre])
-            ]
-            if candidates:
-                selected_movie = random.choice(candidates)
-                return (
-                    selected_movie["code"],
-                    f"{selected_movie['genres'] or 'qiziqarli'} janridagi kino tanlandi.",
-                )
-
-    if not OPENAI_API_KEY:
-        mood_words = set(re.findall(r"[a-zA-ZА-Яа-яА-ЯёЁo'`]+", mood.lower()))
-        preference_words = {
-            "qo'rqinchli": {"qo'rqinchli", "horror", "dahshat", "qonli", "hayajonli"},
-            "kulgili": {"kulgili", "komediya", "kulgi", "quvnoq"},
-            "jangari": {"jangari", "jang", "urush", "action", "harakat", "sarguzasht"},
-            "romantik": {"romantik", "sevgi", "muhabbat", "love"},
-            "drama": {"drama", "ta'sirli", "qayg'uli", "fantaziya", "fentezi"},
-            "multfilm": {"multfilm", "animatsiya", "cartoon", "anime"},
-        }
-        ranked_movies = []
-        for movie in movies:
-            searchable_text = " ".join(
-                [movie["title"], movie["genres"], movie["year"]]
-            ).lower()
-            score = sum(
-                1 for words in preference_words.values()
-                if mood_words.intersection(words)
-                and any(word in searchable_text for word in words)
-            )
-            ranked_movies.append((score, movie))
-        best_score = max(score for score, _ in ranked_movies)
-        candidates = [movie for score, movie in ranked_movies if score == best_score]
-        selected_movie = random.choice(candidates)
-        return (
-            selected_movie["code"],
-            f"Kayfiyatingizga mos ravishda {selected_movie['genres'] or 'qiziqarli'} janridagi kino tanlandi.",
-        )
-
-    request_body = {
-        "model": OPENAI_MODEL,
-        "temperature": 0.2,
-        "response_format": {"type": "json_object"},
-        "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "Sen Gold Cinema uchun o'zbek tilida kino tavsiya qilasan. "
-                    "Faqat berilgan katalogdagi bitta filmni tanla. "
-                    "Faqat JSON qaytar: {\"code\": \"film kodi\", \"reason\": \"qisqa izoh\"}."
-                ),
-            },
-            {
-                "role": "user",
-                "content": json.dumps(
-                    {"mood": mood, "catalog": movies}, ensure_ascii=False
-                ),
-            },
-        ],
-    }
-    timeout = aiohttp.ClientTimeout(total=40)
-    async with aiohttp.ClientSession(timeout=timeout) as client:
-        async with client.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
-            json=request_body,
-        ) as response:
-            response.raise_for_status()
-            result = await response.json()
-
-    content = result["choices"][0]["message"]["content"]
-    if not isinstance(content, str):
-        raise ValueError("AI javobi noto'g'ri formatda.")
-    recommendation = json.loads(content)
-    code = str(recommendation.get("code", ""))
-    reason = str(recommendation.get("reason", "")).strip()
-    if code not in MOVIES_DATABASE or not reason:
-        raise ValueError("AI katalogdan yaroqli tavsiya qaytarmadi.")
-    return code, reason[:500]
-
-
-async def send_ai_recommendation(user_id: int, mood: str) -> None:
-    code, reason = await get_ai_movie_recommendation(mood)
-    movie = MOVIES_DATABASE[code]
-    genre = escape(str(movie.get("janr") or "Noma'lum"))
-    direct_genre = normalize_genre_input(mood)
-    direct_genre_tokens = {
-        token.strip()
-        for token in re.split(r"[,/|&+\s]+", direct_genre)
-        if token.strip()
-    }
-    is_direct_genre = bool(
-        direct_genre_tokens
-        & {
-            "qo'rqinchli", "horror", "hayajonli", "dahshat", "qonli",
-            "kulgili", "komediya", "kulgi", "quvnoq",
-            "jangari", "urush", "action", "harakat",
-            "romantik", "sevgi", "muhabbat",
-            "drama", "ta'sirli", "qayg'uli",
-            "sokin", "sokinlik",
-            "multfilm", "animatsiya", "anime", "cartoon",
-        }
-    )
-
-    intro = (
-        "🤖 <b>Tanlangan janrga mos kino:</b>\n\n"
-        if is_direct_genre
-        else "🤖 <b>Kayfiyatingizga mos kino tavsiyasi:</b>\n\n"
-    )
-    message_text = (
-        f"{intro}"
-        f"🎬 <b>{escape(str(movie.get('name', 'Nomsiz')))}</b> ({escape(str(movie.get('yil', '')) )})\n"
-        f"🎭 Janr: {genre}\n"
-        f"💬 {escape(reason)}"
-        + (f"\n\n🔎 Kino kodi: <code>{escape(code)}</code>" if not is_direct_genre else "")
-    )
-    await bot.send_message(user_id, message_text, parse_mode="HTML")
-    if movie.get("media_type") == "document":
-        await bot.send_document(
-            user_id,
-            document=movie["file_id"],
-            caption=build_caption(code, movie),
-            parse_mode="HTML",
-            reply_markup=build_movie_keyboard(code, movie, user_id),
-        )
-    else:
-        await bot.send_video(
-            user_id,
-            video=movie["file_id"],
-            caption=build_caption(code, movie),
-            parse_mode="HTML",
-            reply_markup=build_movie_keyboard(code, movie, user_id),
-        )
-    VIEWS[user_id] = VIEWS.get(user_id, 0) + 1
-    register_daily_view(user_id)
-    save_data()
 
 
 class AddMovie(StatesGroup):
@@ -341,10 +154,6 @@ class AdminPollState(StatesGroup):
 
 class PremiumPaymentState(StatesGroup):
     waiting_receipt = State()
-
-
-class AIRecommendationState(StatesGroup):
-    mood = State()
 
 
 # ======================================================================================
@@ -656,9 +465,6 @@ def save_data() -> None:
         "referrals": {str(k): list(v) for k, v in REFERRALS.items()},
         "referred_by": {str(k): v for k, v in REFERRED_BY.items()},
         "current_premiere": CURRENT_PREMIERE,
-        "pending_ai_recommendations": {
-            str(user_id): request for user_id, request in PENDING_AI_RECOMMENDATIONS.items()
-        },
         "ratings": {
             code: {"likes": list(movie["likes"]), "dislikes": list(movie["dislikes"])}
             for code, movie in MOVIES_DATABASE.items()
@@ -720,11 +526,6 @@ def load_data() -> None:
         REFERRALS.update({int(k): set(v) for k, v in data.get("referrals", {}).items()})
         REFERRED_BY.update({int(k): int(v) for k, v in data.get("referred_by", {}).items()})
         CURRENT_PREMIERE = data.get("current_premiere")
-        PENDING_AI_RECOMMENDATIONS.update({
-            int(user_id): request
-            for user_id, request in data.get("pending_ai_recommendations", {}).items()
-            if isinstance(request, dict) and request.get("mood")
-        })
         for code, movie in data.get("movies", {}).items():
             if isinstance(movie, dict):
                 MOVIES_DATABASE[str(code)] = movie
@@ -950,7 +751,7 @@ def build_user_reply_keyboard() -> ReplyKeyboardMarkup:
     keyboard += [
         [KeyboardButton(text="🎲 Tasodifiy kino"), KeyboardButton(text="📅 Kunning kinosi")],
         [KeyboardButton(text="🔥 TOP kinolar"), KeyboardButton(text="⭐ Sevimlilarim")],
-        [KeyboardButton(text="📚 Kino ro'yxati"), KeyboardButton(text="🤖 AI tavsiya")],
+        [KeyboardButton(text="📚 Kino ro'yxati")],
         [KeyboardButton(text="💎 Premium"), KeyboardButton(text="📝 Kino so'rash")],
     ]
     return ReplyKeyboardMarkup(
@@ -979,10 +780,7 @@ def build_main_menu_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="📚 Kino ro'yxati", callback_data="menu_movies"),
             InlineKeyboardButton(text="💎 Premium", callback_data="premium_info"),
         ],
-        [
-            InlineKeyboardButton(text="🤖 AI tavsiya · 2 000 so'm", callback_data="ai_recommend"),
-            InlineKeyboardButton(text="📝 Kino so'rash", callback_data="menu_request"),
-        ],
+        [InlineKeyboardButton(text="📝 Kino so'rash", callback_data="menu_request")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
@@ -1183,77 +981,6 @@ async def admin_panel_callback(call: CallbackQuery):
         )
 
 
-async def prompt_ai_recommendation(message: Message, state: FSMContext) -> None:
-    if message.from_user is None:
-        return
-    has_free_ai_access = has_premium_access(message.from_user.id)
-    if not has_free_ai_access and (not CARD_NUMBER or ADMIN_ID == 0):
-        await message.answer("⚠️ To'lov ma'lumotlari sozlanmagan. Admin bilan bog'laning.")
-        return
-    if message.from_user.id in PENDING_AI_RECOMMENDATIONS:
-        await message.answer("⏳ Oldingi AI tavsiya to'lovingiz admin tasdig'ini kutmoqda.")
-        return
-    await state.clear()
-    await state.set_state(AIRecommendationState.mood)
-    await message.answer(
-        "🤖 <b>AI tavsiya</b>\n\n"
-        "Kino janrini yozing: <i>Jangari</i>, <i>Komediya</i>, <i>Romantik</i>, <i>Multfilm, animatsiya</i>, <i>Qo'rqinchli</i>.\n\n"
-        "Faqat janrni yozing — men sizga mos kinoni topib beraman."
-        + ("\n\n✅ Siz uchun AI tavsiya bepul." if has_free_ai_access else ""),
-        parse_mode="HTML",
-    )
-
-
-@dp.message(StateFilter(None), F.text.in_({"🤖 AI tavsiya", "🤖 AI tavsiya (2 000 so'm)"}))
-async def ai_recommendation_msg(message: Message, state: FSMContext):
-    await prompt_ai_recommendation(message, state)
-
-
-@dp.callback_query(F.data == "ai_recommend")
-async def ai_recommendation_callback(call: CallbackQuery, state: FSMContext):
-    await call.answer()
-    message = get_callback_message(call)
-    if message:
-        await prompt_ai_recommendation(message, state)
-
-
-@dp.message(AIRecommendationState.mood, F.text)
-async def ai_recommendation_mood(message: Message, state: FSMContext):
-    if message.from_user is None or not message.text:
-        return
-    mood = message.text.strip()
-    if not mood or len(mood) > 160:
-        await message.answer("Kayfiyatingizni 160 belgigacha yozing.")
-        return
-    if has_premium_access(message.from_user.id):
-        await state.clear()
-        try:
-            await send_ai_recommendation(message.from_user.id, mood)
-        except (
-            aiohttp.ClientError,
-            asyncio.TimeoutError,
-            TelegramBadRequest,
-            TelegramForbiddenError,
-            IndexError,
-            KeyError,
-            TypeError,
-            ValueError,
-        ):
-            await message.answer("⚠️ AI tavsiya yuborilmadi. Birozdan so'ng qayta urinib ko'ring.")
-        return
-    await state.clear()
-    await state.set_state(PremiumPaymentState.waiting_receipt)
-    await state.update_data(payment_kind="ai_recommendation", mood=mood)
-    await message.answer(
-        f"🤖 <b>AI tavsiya narxi:</b> {AI_RECOMMENDATION_PRICE_LABEL} so'm\n\n"
-        f"💳 <b>Karta raqami:</b> <code>{escape(CARD_NUMBER)}</code>\n"
-        f"👤 <b>Karta egasi:</b> {escape(CARD_NAME or 'Koʻrsatilmagan')}\n\n"
-        "To'lovdan so'ng chek rasmini yoki faylini yuboring. "
-        "Admin tasdiqlagach, kayfiyatingizga mos kino tavsiyasi yuboriladi.",
-        parse_mode="HTML",
-    )
-
-
 @dp.callback_query(F.data == "premium_info")
 async def premium_info(call: CallbackQuery):
     await call.answer()
@@ -1293,7 +1020,7 @@ async def premium_plan_selected(call: CallbackQuery, state: FSMContext):
         return
     await state.clear()
     await state.set_state(PremiumPaymentState.waiting_receipt)
-    await state.update_data(payment_kind="premium", plan=plan["name"], plan_code=plan_code)
+    await state.update_data(plan=plan["name"], plan_code=plan_code)
     await call.answer("✅ Tarif tanlandi!")
     message = get_callback_message(call)
     if message:
@@ -1316,58 +1043,35 @@ async def premium_receipt_received(message: Message, state: FSMContext):
         return
     if message.from_user.id == ADMIN_ID:
         await state.clear()
-        await message.answer("✅ Siz adminsiz. AI tavsiya uchun to'lov cheki kerak emas.")
+        await message.answer("✅ Siz adminsiz. To'lov cheki kerak emas.")
         return
     data = await state.get_data()
-    is_ai_request = data.get("payment_kind") == "ai_recommendation"
-    mood = str(data.get("mood", "")).strip()
-    if is_ai_request and not mood:
-        await state.clear()
-        await message.answer("⚠️ Kayfiyat ma'lumoti topilmadi. AI tavsiyani qaytadan boshlang.")
-        return
     plan_name = data.get("plan", "Noma'lum tarif")
-    payment_id = None
+    plan_code = data.get("plan_code")
+    if plan_code not in PREMIUM_PLANS:
+        await state.clear()
+        await message.answer("⚠️ Tarif ma'lumoti topilmadi. Xaridni qaytadan boshlang.")
+        return
     user = message.from_user
     username = f"@{user.username}" if user.username else "Username mavjud emas"
-    if is_ai_request:
-        PENDING_AI_RECOMMENDATIONS[user.id] = {"mood": mood}
-        save_data()
-        admin_caption = (
-            "🤖 <b>AI tavsiya uchun to'lov cheki</b>\n\n"
-            f"💰 Summa: <b>{AI_RECOMMENDATION_PRICE_LABEL} so'm</b>\n"
-            f"🎭 Kayfiyat: {escape(mood)}\n"
-            f"👤 Foydalanuvchi: <b>{escape(user.full_name)}</b>\n"
-            f"🔗 Username: {escape(username)}\n"
-            f"🆔 ID: <code>{user.id}</code>"
-        )
-        review_keyboard = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="✅ Tasdiqlash", callback_data=f"aiapprove:{user.id}"),
-            InlineKeyboardButton(text="❌ Rad etish", callback_data=f"aireject:{user.id}"),
-        ]])
-    else:
-        plan_code = data.get("plan_code")
-        if plan_code not in PREMIUM_PLANS:
-            await state.clear()
-            await message.answer("⚠️ Tarif ma'lumoti topilmadi. Xaridni qaytadan boshlang.")
-            return
-        payment_id = uuid4().hex[:12]
-        PENDING_PREMIUM_PAYMENTS[payment_id] = {
-            "user_id": user.id,
-            "plan_code": plan_code,
-            "plan": str(plan_name),
-        }
-        save_data()
-        review_keyboard = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="✅ Tasdiqlash", callback_data=f"premiumapprove:{payment_id}"),
-            InlineKeyboardButton(text="❌ Rad etish", callback_data=f"premiumreject:{payment_id}"),
-        ]])
-        admin_caption = (
-            "💎 <b>Yangi Premium to'lov cheki</b>\n\n"
-            f"📦 Tarif: <b>{escape(str(plan_name))}</b>\n"
-            f"👤 Foydalanuvchi: <b>{escape(user.full_name)}</b>\n"
-            f"🔗 Username: {escape(username)}\n"
-            f"🆔 ID: <code>{user.id}</code>"
-        )
+    payment_id = uuid4().hex[:12]
+    PENDING_PREMIUM_PAYMENTS[payment_id] = {
+        "user_id": user.id,
+        "plan_code": plan_code,
+        "plan": str(plan_name),
+    }
+    save_data()
+    review_keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="✅ Tasdiqlash", callback_data=f"premiumapprove:{payment_id}"),
+        InlineKeyboardButton(text="❌ Rad etish", callback_data=f"premiumreject:{payment_id}"),
+    ]])
+    admin_caption = (
+        "💎 <b>Yangi Premium to'lov cheki</b>\n\n"
+        f"📦 Tarif: <b>{escape(str(plan_name))}</b>\n"
+        f"👤 Foydalanuvchi: <b>{escape(user.full_name)}</b>\n"
+        f"🔗 Username: {escape(username)}\n"
+        f"🆔 ID: <code>{user.id}</code>"
+    )
     try:
         if message.photo:
             await bot.send_photo(
@@ -1388,19 +1092,13 @@ async def premium_receipt_received(message: Message, state: FSMContext):
         else:
             return
     except (TelegramBadRequest, TelegramForbiddenError):
-        if is_ai_request:
-            PENDING_AI_RECOMMENDATIONS.pop(user.id, None)
-            save_data()
-        elif payment_id:
-            PENDING_PREMIUM_PAYMENTS.pop(payment_id, None)
-            save_data()
+        PENDING_PREMIUM_PAYMENTS.pop(payment_id, None)
+        save_data()
         await message.answer("⚠️ Chekni adminga yuborishda xatolik yuz berdi. Admin bilan bog'laning.")
         return
     await state.clear()
     await message.answer(
-        "✅ Chekingiz adminga yuborildi. To'lov tasdiqlangach kino tavsiyasi yuboriladi."
-        if is_ai_request
-        else "✅ Chekingiz adminga yuborildi. To'lov tasdiqlangach Premium yoqiladi.",
+        "✅ Chekingiz adminga yuborildi. To'lov tasdiqlangach Premium yoqiladi.",
         reply_markup=build_user_reply_keyboard(),
     )
 
@@ -1465,88 +1163,6 @@ async def reject_premium_payment(call: CallbackQuery):
     if message:
         await message.edit_reply_markup(reply_markup=None)
     await call.answer("Chek rad etildi.")
-
-
-@dp.callback_query(F.data.startswith("aiapprove:"))
-async def approve_ai_recommendation(call: CallbackQuery):
-    if call.from_user.id != ADMIN_ID or not call.data:
-        await call.answer("❌ Ruxsat yo'q.", show_alert=True)
-        return
-    try:
-        user_id = int(call.data.split(":", 1)[1])
-    except ValueError:
-        await call.answer("❌ So'rov noto'g'ri.", show_alert=True)
-        return
-    request = PENDING_AI_RECOMMENDATIONS.get(user_id)
-    if not request:
-        await call.answer("So'rov topilmadi yoki allaqachon ko'rib chiqilgan.", show_alert=True)
-        return
-    if user_id in AI_RECOMMENDATION_IN_PROGRESS:
-        await call.answer("AI tavsiya tayyorlanmoqda.", show_alert=True)
-        return
-    AI_RECOMMENDATION_IN_PROGRESS.add(user_id)
-    await call.answer("AI tavsiya tayyorlanmoqda...")
-    try:
-        code, reason = await get_ai_movie_recommendation(request["mood"])
-        movie = MOVIES_DATABASE[code]
-        genre = escape(str(movie.get("janr") or "Noma'lum"))
-        await bot.send_message(
-            user_id,
-            "🤖 <b>Kayfiyatingizga mos kino tavsiyasi:</b>\n\n"
-            f"🎬 <b>{escape(str(movie.get('name', 'Nomsiz')))}</b> ({escape(str(movie.get('yil', '')))})\n"
-            f"🎭 Janr: {genre}\n"
-            f"💬 {escape(reason)}\n\n"
-            f"🔎 Kino kodi: <code>{escape(code)}</code>",
-            parse_mode="HTML",
-        )
-    except (
-        aiohttp.ClientError,
-        asyncio.TimeoutError,
-        TelegramBadRequest,
-        TelegramForbiddenError,
-        IndexError,
-        KeyError,
-        TypeError,
-        ValueError,
-    ):
-        message = get_callback_message(call)
-        if message:
-            await message.answer("⚠️ AI tavsiya yuborilmadi. So'rov saqlandi, tugmani qayta bosing.")
-        return
-    finally:
-        AI_RECOMMENDATION_IN_PROGRESS.discard(user_id)
-    PENDING_AI_RECOMMENDATIONS.pop(user_id, None)
-    save_data()
-    message = get_callback_message(call)
-    if message:
-        await message.edit_reply_markup(reply_markup=None)
-
-
-@dp.callback_query(F.data.startswith("aireject:"))
-async def reject_ai_recommendation(call: CallbackQuery):
-    if call.from_user.id != ADMIN_ID or not call.data:
-        await call.answer("❌ Ruxsat yo'q.", show_alert=True)
-        return
-    try:
-        user_id = int(call.data.split(":", 1)[1])
-    except ValueError:
-        await call.answer("❌ So'rov noto'g'ri.", show_alert=True)
-        return
-    if PENDING_AI_RECOMMENDATIONS.pop(user_id, None) is None:
-        await call.answer("So'rov topilmadi yoki allaqachon ko'rib chiqilgan.", show_alert=True)
-        return
-    save_data()
-    try:
-        await bot.send_message(
-            user_id,
-            "⚠️ To'lov chekingiz tasdiqlanmadi. Batafsil ma'lumot uchun admin bilan bog'laning.",
-        )
-    except (TelegramBadRequest, TelegramForbiddenError):
-        pass
-    message = get_callback_message(call)
-    if message:
-        await message.edit_reply_markup(reply_markup=None)
-    await call.answer("So'rov rad etildi.")
 
 
 @dp.message(PremiumPaymentState.waiting_receipt, F.text)
@@ -2765,83 +2381,6 @@ async def get_movie_by_code(message: Message):
         await send_movie(message, code, MOVIES_DATABASE[code], user_id)
     else:
         await message.answer("❌ Bunday kodli kino topilmadi. Qayta urinib ko'ring.")
-
-
-def looks_like_ai_movie_request(text: str) -> bool:
-    normalized_text = text.casefold().replace("`", "'").strip()
-    if not normalized_text:
-        return False
-
-    normalized_text = re.sub(r"[^a-zA-ZА-Яа-я0-9'\s,./|&+-]", " ", normalized_text)
-    normalized_text = re.sub(r"\s+", " ", normalized_text).strip()
-    if not normalized_text:
-        return False
-
-    mood_words = {
-        "kulgili",
-        "komediya",
-        "komedi",
-        "hayajonli",
-        "qayguli",
-        "romantik",
-        "romantika",
-        "muhabbat",
-        "jangari",
-        "qo'rqinchli",
-        "qorqinchli",
-        "horror",
-        "drama",
-        "fantastika",
-        "fentezi",
-        "sarguzasht",
-        "musiqali",
-        "misteriyali",
-        "misteriya",
-        "triller",
-        "multfilm",
-        "animatsiya",
-        "anime",
-        "cartoon",
-        "sokin",
-        "adventure",
-        "action",
-        "thriller",
-    }
-    request_phrases = (
-        "ko'rgim",
-        "ko'rmoq",
-        "istayman",
-        "tavsiya",
-        "kelyapti",
-        "izlayman",
-        "izlayapman",
-        "qidiryapman",
-        "bormoq",
-        "bo'lsin",
-        "kayfiyat",
-        "holat",
-        "qanday",
-        "xohlaysiz",
-        "xohlayman",
-        "xohlayapman",
-        "qaysi",
-        "toping",
-        "topib",
-        "tanla",
-        "bering",
-    )
-
-    tokens = {token.strip(" ,./|&+-") for token in normalized_text.split() if token.strip(" ,./|&+-")}
-    if normalized_text in mood_words or any(token in mood_words for token in tokens):
-        return True
-
-    has_mood = any(token in mood_words for token in tokens)
-    has_request = any(phrase in normalized_text for phrase in request_phrases)
-    if not has_mood:
-        return False
-
-    has_movie_context = "kino" in normalized_text or "film" in normalized_text or "kayfiyat" in normalized_text
-    return has_request or (has_movie_context and len(tokens) <= 8)
 
 
 @dp.message(StateFilter(None), F.text)
