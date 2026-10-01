@@ -66,8 +66,8 @@ PREMIUM_PLANS = {
     "year": {"name": "1 yil — 200 000 so'm", "duration": timedelta(days=365)},
 }
 
-# Kuniga nechta kino bepul ko'rish mumkinligi (Premium bo'lmagan foydalanuvchilar uchun)
-DAILY_FREE_LIMIT = max(0, get_int_env("DAILY_FREE_LIMIT", 3))
+# Barcha foydalanuvchilar uchun kunlik kino limiti olib tashlangan.
+DAILY_FREE_LIMIT = 0
 
 PREMIUM_USERS = [
     int(user_id)
@@ -77,8 +77,10 @@ PREMIUM_USERS = [
     )
 ]
 PREMIUM_USERS_CONFIGURED = "PREMIUM_USERS" in os.environ or "PREMIUM_USERs" in os.environ
+INSTAGRAM_ACCOUNTS = ("boxerlife26", "gold_cinema_pro")
 ALL_USERS = set()          # Botdan foydalangan barcha foydalanuvchilar ID lari
 USER_INFO = {}              # {user_id: {"name": str, "username": str, "joined": str}}
+INSTAGRAM_CONFIRMED_USERS: set[int] = set()
 
 FAVORITES: dict[int, set[str]] = {}     # {user_id: {code, code, ...}}
 VIEWS: dict[int, int] = {}              # {user_id: nechta kino ko'rgani (umumiy)}
@@ -580,6 +582,7 @@ def save_data() -> None:
         "premium_subscriptions": {str(k): v for k, v in PREMIUM_SUBSCRIPTIONS.items()},
         "pending_premium_payments": PENDING_PREMIUM_PAYMENTS,
         "all_users": list(ALL_USERS),
+        "instagram_confirmed_users": list(INSTAGRAM_CONFIRMED_USERS),
         "user_info": {str(k): v for k, v in USER_INFO.items()},
         "favorites": {str(k): list(v) for k, v in FAVORITES.items()},
         "views": {str(k): v for k, v in VIEWS.items()},
@@ -641,6 +644,9 @@ def load_data() -> None:
             if isinstance(payment, dict)
         })
         ALL_USERS.update(int(user_id) for user_id in data.get("all_users", []))
+        INSTAGRAM_CONFIRMED_USERS.update(
+            int(user_id) for user_id in data.get("instagram_confirmed_users", [])
+        )
         USER_INFO.update({int(k): v for k, v in data.get("user_info", {}).items()})
         FAVORITES.update({int(k): set(v) for k, v in data.get("favorites", {}).items()})
         VIEWS.update({int(k): int(v) for k, v in data.get("views", {}).items()})
@@ -714,6 +720,36 @@ def get_callback_message(call: CallbackQuery) -> Message | None:
     return call.message if isinstance(call.message, Message) else None
 
 
+def has_instagram_access(user_id: int | None) -> bool:
+    return user_id == ADMIN_ID or user_id in INSTAGRAM_CONFIRMED_USERS
+
+
+def instagram_subscription_keyboard() -> InlineKeyboardMarkup:
+    buttons = [
+        [
+            InlineKeyboardButton(
+                text=f"📷 @{username}",
+                url=f"https://www.instagram.com/{username}/",
+            )
+        ]
+        for username in INSTAGRAM_ACCOUNTS
+    ]
+    buttons.append([InlineKeyboardButton(text="💎 Premium", callback_data="premium_info")])
+    buttons.append([
+        InlineKeyboardButton(text="✅ Obuna bo'ldim", callback_data="instagram_confirmed")
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def instagram_subscription_text() -> str:
+    return (
+        "📷 <b>Botdan foydalanish uchun Instagram sahifalarimizga obuna bo'ling:</b>\n\n"
+        "1. @boxerlife26\n"
+        "2. @gold_cinema_pro\n\n"
+        "Ikkala sahifaga obuna bo'lgach, quyidagi tugmani bosing."
+    )
+
+
 def format_duration(davomiyligi: str) -> str:
     match = re.match(r"\s*(\d+)\s*soat\s*(\d+)\s*minut", davomiyligi)
     if match:
@@ -759,7 +795,9 @@ def today_str() -> str:
 
 
 def get_remaining_free_views(user_id: int | None) -> int:
-    """Premium bo'lsa -1 (cheksiz) qaytaradi, aks holda qolgan bepul ko'rishlar sonini."""
+    """Return -1 because the daily movie limit is disabled."""
+    if DAILY_FREE_LIMIT == 0:
+        return -1
     if user_id is None or has_premium_access(user_id):
         return -1
     record = DAILY_VIEWS.get(user_id)
@@ -800,8 +838,8 @@ def premium_offer_text(user_id: int | None = None) -> str:
             status = "\n\n✅ Premium faol."
     return (
         "💎 <b>Gold Cinema Premium</b>\n\n"
-        f"Bepul foydalanuvchilar kuniga <b>{DAILY_FREE_LIMIT} ta</b> kino ko'rishi mumkin.\n"
-        "Premium bilan esa cheklovsiz, istalgan qadar kino tomosha qilasiz!"
+        "Barcha foydalanuvchilar kinolarni cheklovsiz tomosha qilishi mumkin.\n"
+        "Premium bilan qo'shimcha imkoniyatlarga ega bo'lasiz!"
         f"{status}\n\n"
         "👇 O'zingizga mos tarifni tanlang:"
     )
@@ -1006,14 +1044,38 @@ async def start_cmd(message: Message, command: CommandObject | None = None):
         )
         return
 
+    if not has_instagram_access(message.from_user.id):
+        await message.answer(
+            instagram_subscription_text(),
+            parse_mode="HTML",
+            reply_markup=instagram_subscription_keyboard(),
+        )
+        return
+
     await message.answer(
         f"👋 Salom, <b>{message.from_user.full_name}</b>!\nGold Cinema botiga xush kelibsiz.\n\n"
-        f"🎁 Kuniga <b>{DAILY_FREE_LIMIT} ta</b> kinoni bepul tomosha qilishingiz mumkin. "
-        "Cheksiz tomosha qilish uchun 💎 Premium xarid qilishingiz mumkin.\n\n"
+        "🎁 Kinolarni cheklovsiz tomosha qilishingiz mumkin. "
+        "Qo'shimcha imkoniyatlar uchun 💎 Premium xarid qilishingiz mumkin.\n\n"
         "Kino kodini yoki nomini yuboring 👇",
         parse_mode="HTML",
         reply_markup=build_user_reply_keyboard(),
     )
+
+
+@dp.callback_query(F.data == "instagram_confirmed")
+async def instagram_subscription_confirmed(call: CallbackQuery):
+    if call.from_user.id == ADMIN_ID:
+        await call.answer("✅ Admin uchun obuna tekshiruvi kerak emas.")
+        return
+    INSTAGRAM_CONFIRMED_USERS.add(call.from_user.id)
+    save_data()
+    await call.answer("✅ Obuna tasdiqlandi!")
+    message = get_callback_message(call)
+    if message:
+        await message.edit_text(
+            "✅ Rahmat! Endi Gold Cinema botidan foydalanishingiz mumkin.",
+            reply_markup=build_main_menu_keyboard(),
+        )
 
 
 @dp.message(F.text == "👑 Admin panel")
@@ -1068,6 +1130,13 @@ async def admin_panel_callback(call: CallbackQuery):
 
 async def prompt_ai_recommendation(message: Message, state: FSMContext) -> None:
     if message.from_user is None:
+        return
+    if not has_instagram_access(message.from_user.id):
+        await message.answer(
+            instagram_subscription_text(),
+            parse_mode="HTML",
+            reply_markup=instagram_subscription_keyboard(),
+        )
         return
     has_free_ai_access = has_premium_access(message.from_user.id)
     if not has_free_ai_access and (not CARD_NUMBER or ADMIN_ID == 0):
@@ -1488,7 +1557,7 @@ async def admin_stats_msg(message: Message):
         f"🎬 Kinolar: <b>{len(MOVIES_DATABASE)}</b> ta\n"
         f"👁 Ko'rishlar: <b>{total_views}</b>\n"
         f"👍 Like'lar: <b>{total_likes}</b>\n"
-        f"🎁 Kunlik bepul limit: <b>{DAILY_FREE_LIMIT}</b> ta",
+        "🎁 Kunlik bepul limit: <b>Cheksiz</b>",
         parse_mode="HTML",
         reply_markup=build_admin_reply_keyboard(),
     )
@@ -1820,7 +1889,7 @@ async def show_bot_stats(call: CallbackQuery):
         f"🎬 Kinolar bazasi: <b>{len(MOVIES_DATABASE)}</b> ta\n"
         f"👁 Jami ko'rishlar: <b>{total_views}</b>\n"
         f"👍 Jami like'lar: <b>{total_likes}</b>\n"
-        f"🎁 Kunlik bepul limit: <b>{DAILY_FREE_LIMIT}</b> ta\n"
+        "🎁 Kunlik bepul limit: <b>Cheksiz</b>\n"
         f"🎬 Joriy premyera: <b>{MOVIES_DATABASE[CURRENT_PREMIERE]['name'] if CURRENT_PREMIERE and CURRENT_PREMIERE in MOVIES_DATABASE else 'Yo\u02bbq'}</b>\n"
         f"⏱ Bot ishlash vaqti: <b>{str(uptime).split('.')[0]}</b>"
     )
@@ -2178,18 +2247,13 @@ async def get_document_file_id(message: Message):
 # ======================================================================================
 
 async def send_movie(target: Message, code: str, movie: dict, user_id: int | None = None):
-    # Kunlik bepul limit — Premium bo'lmagan har bir foydalanuvchi uchun
-    if user_id is not None and not has_premium_access(user_id):
-        remaining = get_remaining_free_views(user_id)
-        if remaining <= 0:
-            await target.answer(
-                f"🔒 Bugungi bepul limitingiz ({DAILY_FREE_LIMIT} ta kino) tugadi.\n\n"
-                "💎 Premium xarid qilib, kinolarni cheksiz tomosha qiling!",
-                parse_mode="HTML",
-                reply_markup=premium_plans_keyboard(),
-            )
-            return
-
+    if user_id is not None and not has_instagram_access(user_id):
+        await target.answer(
+            instagram_subscription_text(),
+            parse_mode="HTML",
+            reply_markup=instagram_subscription_keyboard(),
+        )
+        return
     send_method = target.answer_document if movie.get("media_type") == "document" else target.answer_video
     try:
         await send_method(
@@ -2674,6 +2738,13 @@ async def search_movie_by_name(message: Message, state: FSMContext):
         and has_premium_access(message.from_user.id)
         and looks_like_ai_movie_request(message.text)
     ):
+        if not has_instagram_access(message.from_user.id):
+            await message.answer(
+                instagram_subscription_text(),
+                parse_mode="HTML",
+                reply_markup=instagram_subscription_keyboard(),
+            )
+            return
         try:
             await send_ai_recommendation(message.from_user.id, message.text.strip())
         except (
