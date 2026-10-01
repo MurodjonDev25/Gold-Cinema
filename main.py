@@ -2066,11 +2066,6 @@ async def referral_msg(message: Message):
     await message.answer(f"🤝 Shaxsiy taklif havolangiz:\n<code>{link}</code>", parse_mode="HTML")
 
 
-@dp.message(F.text == "🔎 Qidirish yordami")
-async def search_help_msg(message: Message):
-    await message.answer("🔎 Kino kodi yoki nomini chatga yozib yuboring.")
-
-
 @dp.message(F.text == "📞 Admin bilan bog'lanish")
 async def contact_admin_msg(message: Message):
     if ADMIN_USERNAME:
@@ -2226,15 +2221,6 @@ async def request_movie_finish(message: Message, state: FSMContext):
             pass
 
 
-@dp.callback_query(F.data == "menu_search_help")
-async def search_help(call: CallbackQuery):
-    await call.answer(
-        "🔎 Kino kodini (masalan: 1, 2, 3...) yoki kino nomini (masalan: 'ekzorzist') "
-        "to'g'ridan-to'g'ri chatga yozib yuboring!",
-        show_alert=True,
-    )
-
-
 @dp.callback_query(F.data == "menu_home")
 async def home_callback(call: CallbackQuery):
     message = get_callback_message(call)
@@ -2332,82 +2318,6 @@ async def toggle_favorite(call: CallbackQuery):
             await message.edit_reply_markup(reply_markup=build_movie_keyboard(code, movie, user_id))
         except TelegramBadRequest:
             pass
-
-
-# ======================================================================================
-#  KINO KODI VA NOM BO'YICHA QIDIRUV (matnli xabarlar)
-# ======================================================================================
-
-@dp.message(StateFilter(None), F.text.isdigit())
-async def get_movie_by_code(message: Message):
-    if message.text is None:
-        return
-    register_user(message.from_user)
-    code = message.text.strip()
-    user_id = message.from_user.id if message.from_user else None
-    if code in MOVIES_DATABASE:
-        await send_movie(message, code, MOVIES_DATABASE[code], user_id)
-    else:
-        await message.answer("❌ Bunday kodli kino topilmadi. Qayta urinib ko'ring.")
-
-
-@dp.message(StateFilter(None), F.text)
-async def search_movie_by_name(message: Message, state: FSMContext):
-    if message.text is None:
-        return
-    register_user(message.from_user)
-    current_state = await state.get_state()
-    if current_state is not None:
-        return
-    matches = find_movie_matches(message.text)
-    if not matches:
-        await message.answer(
-            "❌ Bunday nomdagi kino topilmadi.\n"
-            "🔎 Kino kodini yoki to'g'ri nomini kiriting, yoki /start orqali menyuga qayting."
-        )
-        return
-    if len(matches) == 1:
-        code, movie = next(iter(matches.items()))
-        user_id = message.from_user.id if message.from_user else None
-        await send_movie(message, code, movie, user_id)
-    else:
-        await message.answer(build_results_text("🔎 <b>Topilgan kinolar:</b>", matches), parse_mode="HTML")
-
-
-# ======================================================================================
-#  INLINE REJIM (@bot_username kino nomi)
-# ======================================================================================
-
-@dp.inline_query()
-async def inline_search(inline_query: InlineQuery):
-    query = inline_query.query.strip()
-    matches = find_movie_matches(query) if query else dict(list(MOVIES_DATABASE.items())[:10])
-
-    results = []
-    for code, movie in list(matches.items())[:20]:
-        if movie.get("media_type") == "document":
-            results.append(
-                InlineQueryResultArticle(
-                    id=code,
-                    title=movie["name"],
-                    description=f"{movie['yil']} | {movie['janr']}",
-                    input_message_content=InputTextMessageContent(
-                        message_text=f"🎬 {movie['name']} — kodi: {code}\nBotga o'tib shu kodni yuboring: @{BOT_USERNAME}"
-                    ),
-                )
-            )
-        else:
-            results.append(
-                InlineQueryResultCachedVideo(
-                    id=code,
-                    video_file_id=movie["file_id"],
-                    title=movie["name"],
-                    description=f"{movie['yil']} | {movie['janr']}",
-                    caption=build_caption(code, movie),
-                    parse_mode="HTML",
-                )
-            )
-    await inline_query.answer(results, cache_time=30, is_personal=True)
 
 
 # ======================================================================================
