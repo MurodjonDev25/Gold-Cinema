@@ -168,6 +168,21 @@ async def get_ai_movie_recommendation(mood: str) -> tuple[str, str]:
     return code, reason[:500]
 
 
+async def send_ai_recommendation(user_id: int, mood: str) -> None:
+    code, reason = await get_ai_movie_recommendation(mood)
+    movie = MOVIES_DATABASE[code]
+    genre = escape(str(movie.get("janr") or "Noma'lum"))
+    await bot.send_message(
+        user_id,
+        "🤖 <b>Kayfiyatingizga mos kino tavsiyasi:</b>\n\n"
+        f"🎬 <b>{escape(str(movie.get('name', 'Nomsiz')))}</b> ({escape(str(movie.get('yil', '')) )})\n"
+        f"🎭 Janr: {genre}\n"
+        f"💬 {escape(reason)}\n\n"
+        f"🔎 Kino kodi: <code>{escape(code)}</code>",
+        parse_mode="HTML",
+    )
+
+
 class AddMovie(StatesGroup):
     name = State()
     til = State()
@@ -1007,10 +1022,11 @@ async def admin_panel_callback(call: CallbackQuery):
 async def prompt_ai_recommendation(message: Message, state: FSMContext) -> None:
     if message.from_user is None:
         return
+    has_free_ai_access = has_premium_access(message.from_user.id)
     if not OPENAI_API_KEY:
         await message.answer("⚠️ AI tavsiya hozircha sozlanmagan. Admin bilan bog'laning.")
         return
-    if not CARD_NUMBER or ADMIN_ID == 0:
+    if not has_free_ai_access and (not CARD_NUMBER or ADMIN_ID == 0):
         await message.answer("⚠️ To'lov ma'lumotlari sozlanmagan. Admin bilan bog'laning.")
         return
     if message.from_user.id in PENDING_AI_RECOMMENDATIONS:
@@ -1019,7 +1035,8 @@ async def prompt_ai_recommendation(message: Message, state: FSMContext) -> None:
     await state.set_state(AIRecommendationState.mood)
     await message.answer(
         "🤖 <b>Kayfiyatingizni yozing</b>\n\n"
-        "Masalan: kulgili narsa ko'rgim kelyapti, hayajonli yoki sokin kino istayman.",
+        "Masalan: kulgili narsa ko'rgim kelyapti, hayajonli yoki sokin kino istayman."
+        + ("\n\n✅ Siz uchun AI tavsiya bepul." if has_free_ai_access else ""),
         parse_mode="HTML",
     )
 
@@ -1044,6 +1061,22 @@ async def ai_recommendation_mood(message: Message, state: FSMContext):
     mood = message.text.strip()
     if not mood or len(mood) > 160:
         await message.answer("Kayfiyatingizni 160 belgigacha yozing.")
+        return
+    if has_premium_access(message.from_user.id):
+        await state.clear()
+        try:
+            await send_ai_recommendation(message.from_user.id, mood)
+        except (
+            aiohttp.ClientError,
+            asyncio.TimeoutError,
+            TelegramBadRequest,
+            TelegramForbiddenError,
+            IndexError,
+            KeyError,
+            TypeError,
+            ValueError,
+        ):
+            await message.answer("⚠️ AI tavsiya yuborilmadi. Birozdan so'ng qayta urinib ko'ring.")
         return
     await state.clear()
     await state.set_state(PremiumPaymentState.waiting_receipt)

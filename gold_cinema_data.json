@@ -262,8 +262,10 @@
     }
   },
   "premium_users": [
-    8564176944
+    8234785808
   ],
+  "premium_subscriptions": {},
+  "pending_premium_payments": {},
   "all_users": [
     8234785808,
     8564176944,
