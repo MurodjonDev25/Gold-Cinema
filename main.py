@@ -148,10 +148,6 @@ class MovieRequestState(StatesGroup):
     waiting = State()
 
 
-class MovieFilterState(StatesGroup):
-    waiting_query = State()
-
-
 class AdminPollState(StatesGroup):
     waiting = State()
 
@@ -749,13 +745,15 @@ def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
 
 
 def build_user_reply_keyboard() -> ReplyKeyboardMarkup:
+    """Oddiy foydalanuvchi uchun asosiy reply-klaviatura. AI tavsiya tugmasi olib tashlandi."""
     keyboard = []
     if CURRENT_PREMIERE and CURRENT_PREMIERE in MOVIES_DATABASE:
         keyboard.append([KeyboardButton(text="🎬 PREMYERA KINO")])
     keyboard += [
         [KeyboardButton(text="🎲 Tasodifiy kino"), KeyboardButton(text="📅 Kunning kinosi")],
         [KeyboardButton(text="🔥 TOP kinolar"), KeyboardButton(text="⭐ Sevimlilarim")],
-        [KeyboardButton(text="📚 Kino ro'yxati"), KeyboardButton(text="🔎 Kino filtrlash")],
+        [KeyboardButton(text="📚 Kino ro'yxati")],
+        [KeyboardButton(text="🤝 Do'stlarni taklif qilish")],
         [KeyboardButton(text="💎 Premium"), KeyboardButton(text="📝 Kino so'rash")],
     ]
     return ReplyKeyboardMarkup(
@@ -765,7 +763,7 @@ def build_user_reply_keyboard() -> ReplyKeyboardMarkup:
 
 
 def build_main_menu_keyboard() -> InlineKeyboardMarkup:
-    """Oddiy foydalanuvchi uchun bosh menyudagi foydali inline tugmalar."""
+    """Oddiy foydalanuvchi uchun bosh menyudagi foydali inline tugmalar. AI tavsiya tugmasi olib tashlandi."""
     keyboard = []
 
     if CURRENT_PREMIERE and CURRENT_PREMIERE in MOVIES_DATABASE:
@@ -784,7 +782,7 @@ def build_main_menu_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="📚 Kino ro'yxati", callback_data="menu_movies"),
             InlineKeyboardButton(text="💎 Premium", callback_data="premium_info"),
         ],
-        [InlineKeyboardButton(text="🔎 Kino filtrlash", callback_data="movie_filter")],
+        [InlineKeyboardButton(text="🤝 Do'stlarni taklif qilish", callback_data="menu_referral")],
         [InlineKeyboardButton(text="📝 Kino so'rash", callback_data="menu_request")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
@@ -809,109 +807,8 @@ def build_admin_panel_keyboard() -> InlineKeyboardMarkup:
         [
             InlineKeyboardButton(text="📢 Xabar yuborish (Broadcast)", callback_data="admin_broadcast"),
         ],
-        [InlineKeyboardButton(text="🔎 Kino filtrlash", callback_data="movie_filter")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
-
-
-def movie_filter_keyboard() -> InlineKeyboardMarkup:
-    fields = (
-        ("name", "🎬 Nomi"),
-        ("janr", "🎭 Janri"),
-        ("yil", "📅 Yili"),
-        ("til", "🗣 Tili"),
-        ("davlat", "🌍 Davlati"),
-        ("sifat", "📼 Sifati"),
-    )
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=label, callback_data=f"movie_filter:{field}")]
-            for field, label in fields
-        ]
-    )
-
-
-async def start_movie_filter(user_id: int, message: Message, state: FSMContext) -> None:
-    await state.clear()
-    if not has_premium_access(user_id):
-        await message.answer(
-            "🔒 Kino filtrlash Premium foydalanuvchilar uchun. Admin bepul foydalanadi.",
-            reply_markup=premium_plans_keyboard(),
-        )
-        return
-    await message.answer(
-        "🔎 Qaysi ma'lumot bo'yicha kinolarni qidiramiz?",
-        reply_markup=movie_filter_keyboard(),
-    )
-
-
-@dp.message(F.text == "🔎 Kino filtrlash")
-async def movie_filter_start_msg(message: Message, state: FSMContext):
-    if message.from_user is None:
-        return
-    await start_movie_filter(message.from_user.id, message, state)
-
-
-@dp.callback_query(F.data == "movie_filter")
-async def movie_filter_start_callback(call: CallbackQuery, state: FSMContext):
-    message = get_callback_message(call)
-    await call.answer()
-    if message is not None:
-        await start_movie_filter(call.from_user.id, message, state)
-
-
-@dp.callback_query(F.data.startswith("movie_filter:"))
-async def movie_filter_field_selected(call: CallbackQuery, state: FSMContext):
-    if not call.data:
-        await call.answer("❌ Noto'g'ri tanlov.", show_alert=True)
-        return
-    field = call.data.split(":", 1)[1]
-    field_labels = {
-        "name": "kino nomini",
-        "janr": "janr nomini",
-        "yil": "chiqqan yilini",
-        "til": "tilini",
-        "davlat": "davlat nomini",
-        "sifat": "sifatini",
-    }
-    if field not in field_labels:
-        await call.answer("❌ Noto'g'ri tanlov.", show_alert=True)
-        return
-    await state.update_data(movie_filter_field=field)
-    await state.set_state(MovieFilterState.waiting_query)
-    await call.answer()
-    message = get_callback_message(call)
-    if message is not None:
-        await message.answer(f"🔎 Qidiriladigan {field_labels[field]} yuboring:")
-
-
-@dp.message(MovieFilterState.waiting_query, F.text)
-async def movie_filter_query_received(message: Message, state: FSMContext):
-    if message.from_user is None or message.text is None:
-        return
-    query = message.text.strip().casefold()
-    if not query:
-        await message.answer("⚠️ Qidiruv so'zi bo'sh bo'lmasligi kerak.")
-        return
-    data = await state.get_data()
-    field = data.get("movie_filter_field")
-    if field not in {"name", "janr", "yil", "til", "davlat", "sifat"}:
-        await state.clear()
-        await message.answer("⚠️ Qidiruv sessiyasi eskirgan. Filtrlashni qaytadan boshlang.")
-        return
-    matches = {
-        code: movie
-        for code, movie in MOVIES_DATABASE.items()
-        if query in str(movie.get(field, "")).casefold()
-    }
-    await state.clear()
-    if not matches:
-        await message.answer("❌ Bu mezon bo'yicha kino topilmadi.")
-        return
-    await message.answer(
-        build_results_text("🔎 <b>Filtr natijalari:</b>", matches),
-        parse_mode="HTML",
-    )
 
 
 def find_movie_matches(query: str) -> dict:
@@ -2043,7 +1940,7 @@ async def send_movie(target: Message, code: str, movie: dict, user_id: int | Non
 
 
 # ======================================================================================
-#  BOSH MENYU TUGMALARI: TASODIFIY, KUNNING KINOSI, TOP, TAVSIYA, SEVIMLILAR, STATISTIKA
+#  BOSH MENYU TUGMALARI: TASODIFIY, KUNNING KINOSI, TOP, SEVIMLILAR, STATISTIKA
 # ======================================================================================
 
 @dp.message(F.text == "🔴 Ko'proq kinolar")
@@ -2162,7 +2059,7 @@ async def request_movie_msg(message: Message, state: FSMContext):
     await message.answer("📝 Qaysi kinoni topishni istaysiz? Nomini yozib yuboring.")
 
 
-@dp.message(F.text == "🤝 Do'stni taklif qilish")
+@dp.message(F.text.in_({"🤝 Do'stni taklif qilish", "🤝 Do'stlarni taklif qilish"}))
 async def referral_msg(message: Message):
     user_id = message.from_user.id if message.from_user else 0
     link = f"https://t.me/{BOT_USERNAME}?start=ref{user_id}" if BOT_USERNAME else "Bot username aniqlanmagan"
