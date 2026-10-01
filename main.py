@@ -4,8 +4,9 @@ import json
 import os
 import random
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from html import escape
+from uuid import uuid4
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.session.aiohttp import AiohttpSession
@@ -59,6 +60,11 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
 AI_RECOMMENDATION_PRICE = 3000
 AI_RECOMMENDATION_PRICE_LABEL = f"{AI_RECOMMENDATION_PRICE:,}".replace(",", " ")
+PREMIUM_PLANS = {
+    "week": {"name": "1 hafta — 10 000 so'm", "duration": timedelta(days=7)},
+    "month": {"name": "1 oy — 25 000 so'm", "duration": timedelta(days=30)},
+    "year": {"name": "1 yil — 200 000 so'm", "duration": timedelta(days=365)},
+}
 
 # Kuniga nechta kino bepul ko'rish mumkinligi (Premium bo'lmagan foydalanuvchilar uchun)
 DAILY_FREE_LIMIT = max(0, get_int_env("DAILY_FREE_LIMIT", 3))
@@ -80,6 +86,8 @@ DAILY_VIEWS: dict[int, dict] = {}       # {user_id: {"date": "YYYY-MM-DD", "coun
 REFERRALS: dict[int, set[int]] = {}     # {referrer_id: {taklif qilinganlar}}
 REFERRED_BY: dict[int, int] = {}        # {user_id: kim taklif qilgani}
 PENDING_AI_RECOMMENDATIONS: dict[int, dict[str, str]] = {}
+PREMIUM_SUBSCRIPTIONS: dict[int, str] = {}  # {user_id: amal qilish muddati (ISO datetime)}
+PENDING_PREMIUM_PAYMENTS: dict[str, dict] = {}
 AI_RECOMMENDATION_IN_PROGRESS: set[int] = set()
 
 CURRENT_PREMIERE: str | None = None     # Hozirgi premyera kino kodi
@@ -481,6 +489,20 @@ def normalize_movie_schema() -> None:
         movie["dislikes"] = set(movie.get("dislikes") or [])
 
 
+def has_premium_access(user_id: int | None) -> bool:
+    if user_id is None:
+        return False
+    if user_id == ADMIN_ID or user_id in PREMIUM_USERS:
+        return True
+    expires_at = PREMIUM_SUBSCRIPTIONS.get(user_id)
+    if not expires_at:
+        return False
+    try:
+        return datetime.fromisoformat(expires_at) > datetime.now()
+    except ValueError:
+        return False
+
+
 def save_data() -> None:
     """Kinolar, foydalanuvchilar va reytinglarni restartdan keyin ham saqlaydi."""
     movies_data = {}
@@ -493,6 +515,8 @@ def save_data() -> None:
     data = {
         "movies": movies_data,
         "premium_users": list(dict.fromkeys(PREMIUM_USERS)),
+        "premium_subscriptions": {str(k): v for k, v in PREMIUM_SUBSCRIPTIONS.items()},
+        "pending_premium_payments": PENDING_PREMIUM_PAYMENTS,
         "all_users": list(ALL_USERS),
         "user_info": {str(k): v for k, v in USER_INFO.items()},
         "favorites": {str(k): list(v) for k, v in FAVORITES.items()},
@@ -516,7 +540,7 @@ def save_data() -> None:
             "username": info.get("username", "Mavjud emas"),
             "phone": info.get("phone", "Mavjud emas"),
             "joined": info.get("joined", "Noma'lum"),
-            "premium": user_id in PREMIUM_USERS,
+            "premium": has_premium_access(user_id),
         }
         for user_id, info in USER_INFO.items()
     ]
@@ -545,6 +569,15 @@ def load_data() -> None:
             PREMIUM_USERS[:] = list(dict.fromkeys(
                 PREMIUM_USERS + [int(user_id) for user_id in data.get("premium_users", [])]
             ))
+        PREMIUM_SUBSCRIPTIONS.update({
+            int(user_id): str(expires_at)
+            for user_id, expires_at in data.get("premium_subscriptions", {}).items()
+        })
+        PENDING_PREMIUM_PAYMENTS.update({
+            str(payment_id): payment
+            for payment_id, payment in data.get("pending_premium_payments", {}).items()
+            if isinstance(payment, dict)
+        })
         ALL_USERS.update(int(user_id) for user_id in data.get("all_users", []))
         USER_INFO.update({int(k): v for k, v in data.get("user_info", {}).items()})
         FAVORITES.update({int(k): set(v) for k, v in data.get("favorites", {}).items()})
@@ -645,8 +678,18 @@ def build_caption(code: str, movie: dict) -> str:
     return "\n".join(lines)
 
 
-def has_premium_access(user_id: int | None) -> bool:
-    return user_id is not None and (user_id == ADMIN_ID or user_id in PREMIUM_USERS)
+def grant_premium_subscription(user_id: int, plan_code: str) -> datetime:
+    plan = PREMIUM_PLANS[plan_code]
+    now = datetime.now()
+    current_expiry = PREMIUM_SUBSCRIPTIONS.get(user_id)
+    if current_expiry:
+        try:
+            now = max(now, datetime.fromisoformat(current_expiry))
+        except ValueError:
+            pass
+    expires_at = now + plan["duration"]
+    PREMIUM_SUBSCRIPTIONS[user_id] = expires_at.isoformat(timespec="seconds")
+    return expires_at
 
 
 def today_str() -> str:
@@ -673,11 +716,31 @@ def register_daily_view(user_id: int) -> None:
     record["count"] = int(record.get("count", 0)) + 1
 
 
-def premium_offer_text() -> str:
+def active_premium_user_ids() -> set[int]:
+    return {
+        user_id
+        for user_id in set(PREMIUM_USERS) | set(PREMIUM_SUBSCRIPTIONS)
+        if has_premium_access(user_id)
+    }
+
+
+def premium_offer_text(user_id: int | None = None) -> str:
+    status = ""
+    expires_at = PREMIUM_SUBSCRIPTIONS.get(user_id) if user_id is not None else None
+    if has_premium_access(user_id):
+        if expires_at:
+            try:
+                expiry_label = datetime.fromisoformat(expires_at).strftime("%d.%m.%Y %H:%M")
+                status = f"\n\n✅ Premium faol. Tugash vaqti: <b>{expiry_label}</b>"
+            except ValueError:
+                status = "\n\n✅ Premium faol."
+        else:
+            status = "\n\n✅ Premium faol."
     return (
         "💎 <b>Gold Cinema Premium</b>\n\n"
         f"Bepul foydalanuvchilar kuniga <b>{DAILY_FREE_LIMIT} ta</b> kino ko'rishi mumkin.\n"
-        "Premium bilan esa cheklovsiz, istalgan qadar kino tomosha qilasiz!\n\n"
+        "Premium bilan esa cheklovsiz, istalgan qadar kino tomosha qilasiz!"
+        f"{status}\n\n"
         "👇 O'zingizga mos tarifni tanlang:"
     )
 
@@ -1003,7 +1066,7 @@ async def premium_info(call: CallbackQuery):
     message = get_callback_message(call)
     if message:
         await message.answer(
-            premium_offer_text(),
+            premium_offer_text(call.from_user.id),
             parse_mode="HTML",
             reply_markup=premium_plans_keyboard(),
         )
@@ -1015,7 +1078,7 @@ async def premium_info_msg(message: Message):
         return
     register_user(message.from_user)
     await message.answer(
-        premium_offer_text(),
+        premium_offer_text(message.from_user.id),
         parse_mode="HTML",
         reply_markup=premium_plans_keyboard(),
     )
@@ -1023,29 +1086,27 @@ async def premium_info_msg(message: Message):
 
 @dp.callback_query(F.data.startswith("premium_plan:"))
 async def premium_plan_selected(call: CallbackQuery, state: FSMContext):
-    plans = {
-        "week": "1 hafta — 10 000 so'm",
-        "month": "1 oy — 25 000 so'm",
-        "year": "1 yil — 200 000 so'm",
-    }
     if not call.data:
         await call.answer("❌ Tarif topilmadi.", show_alert=True)
         return
     plan_code = call.data.split(":", 1)[1]
-    plan_name = plans.get(plan_code)
-    if not plan_name:
+    plan = PREMIUM_PLANS.get(plan_code)
+    if not plan:
         await call.answer("❌ Tarif topilmadi.", show_alert=True)
+        return
+    if not CARD_NUMBER or ADMIN_ID == 0:
+        await call.answer("⚠️ To'lov ma'lumotlari sozlanmagan.", show_alert=True)
         return
     await state.clear()
     await state.set_state(PremiumPaymentState.waiting_receipt)
-    await state.update_data(payment_kind="premium", plan=plan_name)
+    await state.update_data(payment_kind="premium", plan=plan["name"], plan_code=plan_code)
     await call.answer("✅ Tarif tanlandi!")
     message = get_callback_message(call)
     if message:
         card_number = CARD_NUMBER or "Karta raqami sozlanmagan"
         card_name = CARD_NAME or "Karta egasi ko'rsatilmagan"
         await message.answer(
-            f"💎 <b>Tanlangan tarif:</b> {plan_name}\n\n"
+            f"💎 <b>Tanlangan tarif:</b> {plan['name']}\n\n"
             f"💳 <b>Karta raqami:</b> <code>{escape(card_number)}</code>\n"
             f"👤 <b>Karta egasi:</b> {escape(card_name)}\n\n"
             "To'lovni amalga oshirgach, chek rasmini yoki faylini shu chatga yuboring.\n"
@@ -1067,6 +1128,7 @@ async def premium_receipt_received(message: Message, state: FSMContext):
         await message.answer("⚠️ Kayfiyat ma'lumoti topilmadi. AI tavsiyani qaytadan boshlang.")
         return
     plan_name = data.get("plan", "Noma'lum tarif")
+    payment_id = None
     user = message.from_user
     username = f"@{user.username}" if user.username else "Username mavjud emas"
     if is_ai_request:
@@ -1085,7 +1147,22 @@ async def premium_receipt_received(message: Message, state: FSMContext):
             InlineKeyboardButton(text="❌ Rad etish", callback_data=f"aireject:{user.id}"),
         ]])
     else:
-        review_keyboard = None
+        plan_code = data.get("plan_code")
+        if plan_code not in PREMIUM_PLANS:
+            await state.clear()
+            await message.answer("⚠️ Tarif ma'lumoti topilmadi. Xaridni qaytadan boshlang.")
+            return
+        payment_id = uuid4().hex[:12]
+        PENDING_PREMIUM_PAYMENTS[payment_id] = {
+            "user_id": user.id,
+            "plan_code": plan_code,
+            "plan": str(plan_name),
+        }
+        save_data()
+        review_keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="✅ Tasdiqlash", callback_data=f"premiumapprove:{payment_id}"),
+            InlineKeyboardButton(text="❌ Rad etish", callback_data=f"premiumreject:{payment_id}"),
+        ]])
         admin_caption = (
             "💎 <b>Yangi Premium to'lov cheki</b>\n\n"
             f"📦 Tarif: <b>{escape(str(plan_name))}</b>\n"
@@ -1116,6 +1193,9 @@ async def premium_receipt_received(message: Message, state: FSMContext):
         if is_ai_request:
             PENDING_AI_RECOMMENDATIONS.pop(user.id, None)
             save_data()
+        elif payment_id:
+            PENDING_PREMIUM_PAYMENTS.pop(payment_id, None)
+            save_data()
         await message.answer("⚠️ Chekni adminga yuborishda xatolik yuz berdi. Admin bilan bog'laning.")
         return
     await state.clear()
@@ -1125,6 +1205,68 @@ async def premium_receipt_received(message: Message, state: FSMContext):
         else "✅ Chekingiz adminga yuborildi. To'lov tasdiqlangach Premium yoqiladi.",
         reply_markup=build_user_reply_keyboard(),
     )
+
+
+@dp.callback_query(F.data.startswith("premiumapprove:"))
+async def approve_premium_payment(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID or not call.data:
+        await call.answer("❌ Ruxsat yo'q.", show_alert=True)
+        return
+    payment_id = call.data.split(":", 1)[1]
+    payment = PENDING_PREMIUM_PAYMENTS.pop(payment_id, None)
+    if not payment:
+        await call.answer("Chek topilmadi yoki allaqachon ko'rib chiqilgan.", show_alert=True)
+        return
+    try:
+        user_id = int(payment["user_id"])
+        plan_code = str(payment["plan_code"])
+        if plan_code not in PREMIUM_PLANS:
+            raise ValueError("Noma'lum Premium tarifi")
+    except (KeyError, TypeError, ValueError):
+        save_data()
+        await call.answer("Chek ma'lumotlari noto'g'ri.", show_alert=True)
+        return
+
+    expires_at = grant_premium_subscription(user_id, plan_code)
+    save_data()
+    try:
+        await bot.send_message(
+            user_id,
+            "✅ To'lovingiz tasdiqlandi! Gold Cinema Premium faollashtirildi.\n"
+            f"📦 Tarif: {escape(str(payment.get('plan', PREMIUM_PLANS[plan_code]['name'])))}\n"
+            f"⏳ Amal qilish muddati: <b>{expires_at.strftime('%d.%m.%Y %H:%M')}</b>",
+            parse_mode="HTML",
+        )
+    except (TelegramBadRequest, TelegramForbiddenError):
+        pass
+    message = get_callback_message(call)
+    if message:
+        await message.edit_reply_markup(reply_markup=None)
+    await call.answer("✅ Premium obuna faollashtirildi.")
+
+
+@dp.callback_query(F.data.startswith("premiumreject:"))
+async def reject_premium_payment(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID or not call.data:
+        await call.answer("❌ Ruxsat yo'q.", show_alert=True)
+        return
+    payment_id = call.data.split(":", 1)[1]
+    payment = PENDING_PREMIUM_PAYMENTS.pop(payment_id, None)
+    if not payment:
+        await call.answer("Chek topilmadi yoki allaqachon ko'rib chiqilgan.", show_alert=True)
+        return
+    save_data()
+    try:
+        await bot.send_message(
+            int(payment["user_id"]),
+            "⚠️ Premium to'lov chekingiz tasdiqlanmadi. Batafsil ma'lumot uchun admin bilan bog'laning.",
+        )
+    except (KeyError, TypeError, ValueError, TelegramBadRequest, TelegramForbiddenError):
+        pass
+    message = get_callback_message(call)
+    if message:
+        await message.edit_reply_markup(reply_markup=None)
+    await call.answer("Chek rad etildi.")
 
 
 @dp.callback_query(F.data.startswith("aiapprove:"))
@@ -1263,7 +1405,7 @@ async def admin_stats_msg(message: Message):
     await message.answer(
         f"📊 <b>Bot statistikasi</b>\n\n"
         f"👥 Foydalanuvchilar: <b>{len(ALL_USERS)}</b>\n"
-        f"💎 Premium foydalanuvchilar: <b>{len(PREMIUM_USERS)}</b>\n"
+        f"💎 Premium foydalanuvchilar: <b>{len(active_premium_user_ids())}</b>\n"
         f"🎬 Kinolar: <b>{len(MOVIES_DATABASE)}</b> ta\n"
         f"👁 Ko'rishlar: <b>{total_views}</b>\n"
         f"👍 Like'lar: <b>{total_likes}</b>\n"
@@ -1277,15 +1419,16 @@ async def admin_stats_msg(message: Message):
 async def premium_users_msg(message: Message):
     if message.from_user is None or message.from_user.id != ADMIN_ID:
         return
-    if not PREMIUM_USERS:
+    premium_users = sorted(active_premium_user_ids())
+    if not premium_users:
         await message.answer(
             "💎 Hozircha Premium foydalanuvchilar yo'q.",
             reply_markup=build_admin_reply_keyboard(),
         )
         return
-    lines = [f"💎 <b>Premium foydalanuvchilar ({len(PREMIUM_USERS)} ta):</b>\n"]
+    lines = [f"💎 <b>Premium foydalanuvchilar ({len(premium_users)} ta):</b>\n"]
     users_updated = False
-    for index, user_id in enumerate(PREMIUM_USERS, 1):
+    for index, user_id in enumerate(premium_users, 1):
         info = USER_INFO.get(user_id, {})
         try:
             chat = await bot.get_chat(user_id)
@@ -1301,10 +1444,20 @@ async def premium_users_msg(message: Message):
         name = escape(str(info.get("name", "Noma'lum")))
         username = escape(str(info.get("username", "Mavjud emas")))
         phone = escape(str(info.get("phone", "Mavjud emas")))
+        expiry_text = ""
+        if user_id in PREMIUM_SUBSCRIPTIONS:
+            try:
+                expiry_text = (
+                    "├ Tugash vaqti: "
+                    f"{datetime.fromisoformat(PREMIUM_SUBSCRIPTIONS[user_id]).strftime('%d.%m.%Y %H:%M')}\n"
+                )
+            except ValueError:
+                pass
         lines.append(
             f"{index}. <b>{name}</b>\n"
             f"├ ID: <code>{user_id}</code>\n"
             f"├ Username: {username}\n"
+            f"{expiry_text}"
             f"└ Telefon: {phone}\n"
         )
     if users_updated:
@@ -1549,7 +1702,7 @@ async def show_users_list(call: CallbackQuery):
         username = escape(str(info.get("username", "Mavjud emas")))
         phone = escape(str(info.get("phone", "Mavjud emas")))
         joined = escape(str(info.get("joined", "Noma'lum")))
-        is_premium = "💎 Premium" if user_id in PREMIUM_USERS else "🆓 Bepul"
+        is_premium = "💎 Premium" if has_premium_access(user_id) else "🆓 Bepul"
 
         text += (
             f"<b>{idx}. {name}</b>\n"
@@ -1584,7 +1737,7 @@ async def show_bot_stats(call: CallbackQuery):
     text = (
         "📊 <b>Bot statistikasi:</b>\n\n"
         f"👥 Foydalanuvchilar: <b>{len(ALL_USERS)}</b>\n"
-        f"💎 Premium foydalanuvchilar: <b>{len(PREMIUM_USERS)}</b>\n"
+        f"💎 Premium foydalanuvchilar: <b>{len(active_premium_user_ids())}</b>\n"
         f"🎬 Kinolar bazasi: <b>{len(MOVIES_DATABASE)}</b> ta\n"
         f"👁 Jami ko'rishlar: <b>{total_views}</b>\n"
         f"👍 Jami like'lar: <b>{total_likes}</b>\n"
@@ -1609,16 +1762,24 @@ async def show_premium_users_panel(call: CallbackQuery):
     message = get_callback_message(call)
     if message is None:
         return
-    if not PREMIUM_USERS:
+    premium_users = sorted(active_premium_user_ids())
+    if not premium_users:
         text = "💎 <b>Premium users</b>\n\nHozircha Premium foydalanuvchilar yo'q."
     else:
-        lines = [f"💎 <b>Premium users ({len(PREMIUM_USERS)} ta)</b>\n"]
-        for index, user_id in enumerate(PREMIUM_USERS, 1):
+        lines = [f"💎 <b>Premium users ({len(premium_users)} ta)</b>\n"]
+        for index, user_id in enumerate(premium_users, 1):
             info = USER_INFO.get(user_id, {})
             name = escape(str(info.get("name", "Noma'lum")))
             username = escape(str(info.get("username", "Mavjud emas")))
+            expiry = PREMIUM_SUBSCRIPTIONS.get(user_id)
+            expiry_text = ""
+            if expiry:
+                try:
+                    expiry_text = f" — {datetime.fromisoformat(expiry).strftime('%d.%m.%Y %H:%M')} gacha"
+                except ValueError:
+                    pass
             lines.append(
-                f"{index}. <b>{name}</b> — <code>{user_id}</code> ({username})"
+                f"{index}. <b>{name}</b> — <code>{user_id}</code> ({username}){expiry_text}"
             )
         text = "\n".join(lines)
     await message.edit_text(
@@ -1771,8 +1932,10 @@ async def admin_premium_manage_finish(message: Message, state: FSMContext):
     except ValueError:
         await message.answer("⚠️ ID faqat raqamlardan iborat bo'ladi.")
         return
-    if user_id in PREMIUM_USERS:
-        PREMIUM_USERS.remove(user_id)
+    if user_id in PREMIUM_USERS or user_id in PREMIUM_SUBSCRIPTIONS:
+        if user_id in PREMIUM_USERS:
+            PREMIUM_USERS.remove(user_id)
+        PREMIUM_SUBSCRIPTIONS.pop(user_id, None)
         result = "olib tashlandi"
     else:
         PREMIUM_USERS.append(user_id)
@@ -2215,7 +2378,7 @@ async def show_my_stats(call: CallbackQuery):
     info = USER_INFO.get(user_id, {})
     liked_count = sum(1 for m in MOVIES_DATABASE.values() if user_id in m["likes"])
     ref_count = len(REFERRALS.get(user_id, set()))
-    is_premium = "💎 Ha" if user_id in PREMIUM_USERS else "🆓 Yo'q"
+    is_premium = "💎 Ha" if has_premium_access(user_id) else "🆓 Yo'q"
     remaining = get_remaining_free_views(user_id)
     remaining_text = "♾ Cheksiz (Premium)" if remaining < 0 else f"{remaining} / {DAILY_FREE_LIMIT} ta"
 
