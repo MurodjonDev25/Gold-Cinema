@@ -413,7 +413,7 @@ MOVIES_DATABASE = {
         "til": "O'zbek tilida",
         "sifat": "1080p",
         "yil": "2016",
-        "janr": "Romantika, Drama",
+        "janr": "Romantika, komediya",
         "davlat": "italiya",
         "davomiyligi": "1 soat 32 minut",
         "is_premium": False,
