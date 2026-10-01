@@ -117,6 +117,14 @@ def premium_plans_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def normalize_genre_input(value: str) -> str:
+    normalized = value.casefold().replace("`", "'").strip()
+    if not normalized:
+        return ""
+    normalized = normalized.replace("janri", "").replace("janr", "").strip()
+    return normalized
+
+
 async def get_ai_movie_recommendation(mood: str) -> tuple[str, str]:
     movies = [
         {
@@ -129,6 +137,44 @@ async def get_ai_movie_recommendation(mood: str) -> tuple[str, str]:
     ]
     if not movies:
         raise ValueError("Kino katalogi bo'sh.")
+
+    direct_genre = normalize_genre_input(mood)
+    if direct_genre:
+        genre_map = {
+            "qo'rqinchli": "qo'rqinchli",
+            "horror": "qo'rqinchli",
+            "hayajonli": "qo'rqinchli",
+            "dahshat": "qo'rqinchli",
+            "qonli": "qo'rqinchli",
+            "kulgili": "kulgili",
+            "komediya": "kulgili",
+            "kulgi": "kulgili",
+            "quvnoq": "kulgili",
+            "jangari": "jangari",
+            "urush": "jangari",
+            "action": "jangari",
+            "harakat": "jangari",
+            "romantik": "romantik",
+            "sevgi": "romantik",
+            "muhabbat": "romantik",
+            "drama": "drama",
+            "ta'sirli": "drama",
+            "qayg'uli": "drama",
+            "sokin": "sokin",
+            "sokinlik": "sokin",
+        }
+        resolved_genre = genre_map.get(direct_genre)
+        if resolved_genre:
+            candidates = [
+                movie for movie in movies
+                if resolved_genre in str(movie["genres"]).casefold()
+            ]
+            if candidates:
+                selected_movie = random.choice(candidates)
+                return (
+                    selected_movie["code"],
+                    f"{selected_movie['genres'] or 'qiziqarli'} janridagi kino tanlandi.",
+                )
 
     if not OPENAI_API_KEY:
         mood_words = set(re.findall(r"[a-zA-ZА-Яа-яА-ЯёЁo'`]+", mood.lower()))
@@ -204,15 +250,22 @@ async def send_ai_recommendation(user_id: int, mood: str) -> None:
     code, reason = await get_ai_movie_recommendation(mood)
     movie = MOVIES_DATABASE[code]
     genre = escape(str(movie.get("janr") or "Noma'lum"))
-    await bot.send_message(
-        user_id,
-        "🤖 <b>Kayfiyatingizga mos kino tavsiyasi:</b>\n\n"
+    direct_genre = normalize_genre_input(mood)
+    is_direct_genre = bool(direct_genre and direct_genre in {"qo'rqinchli", "horror", "hayajonli", "dahshat", "qonli", "kulgili", "komediya", "kulgi", "quvnoq", "jangari", "urush", "action", "harakat", "romantik", "sevgi", "muhabbat", "drama", "ta'sirli", "qayg'uli", "sokin", "sokinlik"})
+
+    intro = (
+        "🤖 <b>Tanlangan janrga mos kino:</b>\n\n"
+        if is_direct_genre
+        else "🤖 <b>Kayfiyatingizga mos kino tavsiyasi:</b>\n\n"
+    )
+    message_text = (
+        f"{intro}"
         f"🎬 <b>{escape(str(movie.get('name', 'Nomsiz')))}</b> ({escape(str(movie.get('yil', '')) )})\n"
         f"🎭 Janr: {genre}\n"
-        f"💬 {escape(reason)}\n\n"
-        f"🔎 Kino kodi: <code>{escape(code)}</code>",
-        parse_mode="HTML",
+        f"💬 {escape(reason)}"
+        + (f"\n\n🔎 Kino kodi: <code>{escape(code)}</code>" if not is_direct_genre else "")
     )
+    await bot.send_message(user_id, message_text, parse_mode="HTML")
     if movie.get("media_type") == "document":
         await bot.send_document(
             user_id,
@@ -360,7 +413,7 @@ MOVIES_DATABASE = {
         "til": "O'zbek tilida",
         "sifat": "1080p",
         "yil": "2016",
-        "janr": "Romantika, drama",
+        "janr": "Romantika, Drama",
         "davlat": "italiya",
         "davomiyligi": "1 soat 32 minut",
         "is_premium": False,
@@ -1131,10 +1184,9 @@ async def prompt_ai_recommendation(message: Message, state: FSMContext) -> None:
         return
     await state.set_state(AIRecommendationState.mood)
     await message.answer(
-        "🤖 <b>Bugun kayfiyatingiz qanday?</b>\n\n"
-        "Qanday kino ko'rishni xohlaysiz?\n"
-        "Masalan: <i>jangari kino</i>, <i>komediya kino</i>, <i>sokin kino</i>, <i>romantik kino</i>.\n\n"
-        "Oddiy so'zlar bilan yozing — men sizga mos kinoni topib beraman."
+        "🤖 <b>AI tavsiya</b>\n\n"
+        "Kino janrini yozing: <i>Jangari</i>, <i>Komediya</i>, <i>Romantik</i>, yoki <i>Qo'rqinchli</i>.\n\n"
+        "Faqat janrni yozing — men sizga mos kinoni topib beraman."
         + ("\n\n✅ Siz uchun AI tavsiya bepul." if has_free_ai_access else ""),
         parse_mode="HTML",
     )
@@ -2704,7 +2756,10 @@ async def get_movie_by_code(message: Message):
 
 
 def looks_like_ai_movie_request(text: str) -> bool:
-    normalized_text = text.casefold().replace("`", "'")
+    normalized_text = text.casefold().replace("`", "'").strip()
+    if not normalized_text:
+        return False
+
     mood_words = {
         "sokin",
         "kulgili",
@@ -2716,7 +2771,6 @@ def looks_like_ai_movie_request(text: str) -> bool:
         "qo'rqinchli",
         "horror",
         "drama",
-        "jangari"
         "komediya",
         "sarguzasht",
         "fentezi",
@@ -2743,6 +2797,11 @@ def looks_like_ai_movie_request(text: str) -> bool:
         "xohlayapman",
         "qaysi",
     )
+
+    matched_word = next((word for word in mood_words if normalized_text == word), None)
+    if matched_word is not None:
+        return True
+
     has_mood = any(word in normalized_text for word in mood_words)
     has_request = any(phrase in normalized_text for phrase in request_phrases)
     return has_mood and (has_request or "kino" in normalized_text or "film" in normalized_text or "kayfiyat" in normalized_text)
