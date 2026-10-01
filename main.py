@@ -2716,6 +2716,7 @@ def looks_like_ai_movie_request(text: str) -> bool:
         "qo'rqinchli",
         "horror",
         "drama",
+        "jangari"
         "komediya",
         "sarguzasht",
         "fentezi",
