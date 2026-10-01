@@ -737,7 +737,6 @@ def instagram_subscription_keyboard() -> InlineKeyboardMarkup:
         for username in INSTAGRAM_ACCOUNTS
     ]
     buttons.append([InlineKeyboardButton(text="💎 Premium", callback_data="premium_info")])
-    buttons.append([InlineKeyboardButton(text="🤖 AI tavsiya · 2 000 so'm", callback_data="ai_recommend")])
     buttons.append([
         InlineKeyboardButton(text="✅ Obuna bo'ldim", callback_data="instagram_confirmed")
     ])
@@ -1132,8 +1131,9 @@ async def prompt_ai_recommendation(message: Message, state: FSMContext) -> None:
         return
     await state.set_state(AIRecommendationState.mood)
     await message.answer(
-        "🤖 <b>Kayfiyatingizni yozing</b>\n\n"
-        "Masalan: kulgili narsa ko'rgim kelyapti, hayajonli yoki sokin kino istayman."
+        "🤖 <b>Bugun qanday holatdasIZ?</b>\n\n"
+        "Yozing: masalan, <i>kulgili</i>, <i>qayg'uli</i>, <i>hayajonli</i> yoki <i>sokin</i> ko'rmoqchiman.\n\n"
+        "Oddiy so'zlar bilan yozing — men sizga mos kinoni tanlab beraman."
         + ("\n\n✅ Siz uchun AI tavsiya bepul." if has_free_ai_access else ""),
         parse_mode="HTML",
     )
