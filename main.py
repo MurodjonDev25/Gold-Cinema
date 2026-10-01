@@ -58,7 +58,7 @@ CARD_NUMBER = os.getenv("CARD_NUMBER", "").strip()
 CARD_NAME = os.getenv("CARD_NAME", "").strip()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
-AI_RECOMMENDATION_PRICE = 3000
+AI_RECOMMENDATION_PRICE = 2000
 AI_RECOMMENDATION_PRICE_LABEL = f"{AI_RECOMMENDATION_PRICE:,}".replace(",", " ")
 PREMIUM_PLANS = {
     "week": {"name": "1 hafta — 10 000 so'm", "duration": timedelta(days=7)},
@@ -735,6 +735,7 @@ def instagram_subscription_keyboard() -> InlineKeyboardMarkup:
         for username in INSTAGRAM_ACCOUNTS
     ]
     buttons.append([InlineKeyboardButton(text="💎 Premium", callback_data="premium_info")])
+    buttons.append([InlineKeyboardButton(text="🤖 AI tavsiya · 2 000 so'm", callback_data="ai_recommend")])
     buttons.append([
         InlineKeyboardButton(text="✅ Obuna bo'ldim", callback_data="instagram_confirmed")
     ])
@@ -1044,21 +1045,10 @@ async def start_cmd(message: Message, command: CommandObject | None = None):
         )
         return
 
-    if not has_instagram_access(message.from_user.id):
-        await message.answer(
-            instagram_subscription_text(),
-            parse_mode="HTML",
-            reply_markup=instagram_subscription_keyboard(),
-        )
-        return
-
     await message.answer(
-        f"👋 Salom, <b>{message.from_user.full_name}</b>!\nGold Cinema botiga xush kelibsiz.\n\n"
-        "🎁 Kinolarni cheklovsiz tomosha qilishingiz mumkin. "
-        "Qo'shimcha imkoniyatlar uchun 💎 Premium xarid qilishingiz mumkin.\n\n"
-        "Kino kodini yoki nomini yuboring 👇",
+        instagram_subscription_text(),
         parse_mode="HTML",
-        reply_markup=build_user_reply_keyboard(),
+        reply_markup=instagram_subscription_keyboard(),
     )
 
 
@@ -1130,13 +1120,6 @@ async def admin_panel_callback(call: CallbackQuery):
 
 async def prompt_ai_recommendation(message: Message, state: FSMContext) -> None:
     if message.from_user is None:
-        return
-    if not has_instagram_access(message.from_user.id):
-        await message.answer(
-            instagram_subscription_text(),
-            parse_mode="HTML",
-            reply_markup=instagram_subscription_keyboard(),
-        )
         return
     has_free_ai_access = has_premium_access(message.from_user.id)
     if not has_free_ai_access and (not CARD_NUMBER or ADMIN_ID == 0):
@@ -2738,13 +2721,6 @@ async def search_movie_by_name(message: Message, state: FSMContext):
         and has_premium_access(message.from_user.id)
         and looks_like_ai_movie_request(message.text)
     ):
-        if not has_instagram_access(message.from_user.id):
-            await message.answer(
-                instagram_subscription_text(),
-                parse_mode="HTML",
-                reply_markup=instagram_subscription_keyboard(),
-            )
-            return
         try:
             await send_ai_recommendation(message.from_user.id, message.text.strip())
         except (
