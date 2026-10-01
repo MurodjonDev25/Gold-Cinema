@@ -745,10 +745,10 @@ def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
 
 
 def build_user_reply_keyboard() -> ReplyKeyboardMarkup:
-    """Oddiy foydalanuvchi uchun asosiy reply-klaviatura. AI tavsiya tugmasi olib tashlandi."""
+    """Oddiy foydalanuvchi uchun asosiy reply-klaviatura. Yozuvlar aniq va chiroyli ko'rinadi."""
     keyboard = []
     if CURRENT_PREMIERE and CURRENT_PREMIERE in MOVIES_DATABASE:
-        keyboard.append([KeyboardButton(text="🎬 PREMYERA KINO")])
+        keyboard.append([KeyboardButton(text="🎬 Premyera kino")])
     keyboard += [
         [KeyboardButton(text="🎲 Tasodifiy kino"), KeyboardButton(text="📅 Kunning kinosi")],
         [KeyboardButton(text="🔥 TOP kinolar"), KeyboardButton(text="⭐ Sevimlilarim")],
@@ -763,11 +763,11 @@ def build_user_reply_keyboard() -> ReplyKeyboardMarkup:
 
 
 def build_main_menu_keyboard() -> InlineKeyboardMarkup:
-    """Oddiy foydalanuvchi uchun bosh menyudagi foydali inline tugmalar. AI tavsiya tugmasi olib tashlandi."""
+    """Oddiy foydalanuvchi uchun bosh menyudagi foydali inline tugmalar. Yozuvlar toza va chiroyli."""
     keyboard = []
 
     if CURRENT_PREMIERE and CURRENT_PREMIERE in MOVIES_DATABASE:
-        keyboard.append([InlineKeyboardButton(text="🎬 PREMYERA KINO", callback_data="menu_premiere")])
+        keyboard.append([InlineKeyboardButton(text="🎬 Premyera kino", callback_data="menu_premiere")])
 
     keyboard += [
         [
