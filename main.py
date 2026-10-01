@@ -784,10 +784,8 @@ def build_user_reply_keyboard() -> ReplyKeyboardMarkup:
     keyboard += [
         [KeyboardButton(text="🎲 Tasodifiy kino"), KeyboardButton(text="📅 Kunning kinosi")],
         [KeyboardButton(text="🔥 TOP kinolar"), KeyboardButton(text="⭐ Sevimlilarim")],
-        [KeyboardButton(text="📚 Kino ro'yxati")],
-        [KeyboardButton(text="🤖 AI tavsiya (3 000 so'm)")],
-        [KeyboardButton(text="📝 Kino so'rash")],
-        [KeyboardButton(text="💎 Premium")],
+        [KeyboardButton(text="📚 Kino ro'yxati"), KeyboardButton(text="💎 Premium")],
+        [KeyboardButton(text="🤖 AI tavsiya"), KeyboardButton(text="📝 Kino so'rash")],
     ]
     return ReplyKeyboardMarkup(
         keyboard=keyboard,
@@ -813,11 +811,11 @@ def build_main_menu_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(text="📚 Kino ro'yxati", callback_data="menu_movies"),
-        ],
-        [InlineKeyboardButton(text="🤖 AI tavsiya · 3 000 so'm", callback_data="ai_recommend")],
-        [InlineKeyboardButton(text="📝 Kino so'rash", callback_data="menu_request")],
-        [
             InlineKeyboardButton(text="💎 Premium", callback_data="premium_info"),
+        ],
+        [
+            InlineKeyboardButton(text="🤖 AI tavsiya · 3 000 so'm", callback_data="ai_recommend"),
+            InlineKeyboardButton(text="📝 Kino so'rash", callback_data="menu_request"),
         ],
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
@@ -1026,7 +1024,7 @@ async def prompt_ai_recommendation(message: Message, state: FSMContext) -> None:
     )
 
 
-@dp.message(StateFilter(None), F.text == "🤖 AI tavsiya (3 000 so'm)")
+@dp.message(StateFilter(None), F.text.in_({"🤖 AI tavsiya", "🤖 AI tavsiya (3 000 so'm)"}))
 async def ai_recommendation_msg(message: Message, state: FSMContext):
     await prompt_ai_recommendation(message, state)
 
