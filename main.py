@@ -1131,9 +1131,10 @@ async def prompt_ai_recommendation(message: Message, state: FSMContext) -> None:
         return
     await state.set_state(AIRecommendationState.mood)
     await message.answer(
-        "🤖 <b>Bugun qanday holatdasIZ?</b>\n\n"
-        "Yozing: masalan, <i>kulgili</i>, <i>qayg'uli</i>, <i>hayajonli</i> yoki <i>sokin</i> ko'rmoqchiman.\n\n"
-        "Oddiy so'zlar bilan yozing — men sizga mos kinoni tanlab beraman."
+        "🤖 <b>Bugun kayfiyatingiz qanday?</b>\n\n"
+        "Qanday kino ko'rishni xohlaysiz?\n"
+        "Masalan: <i>jangari kino</i>, <i>komediya kino</i>, <i>sokin kino</i>, <i>romantik kino</i>.\n\n"
+        "Oddiy so'zlar bilan yozing — men sizga mos kinoni topib beraman."
         + ("\n\n✅ Siz uchun AI tavsiya bepul." if has_free_ai_access else ""),
         parse_mode="HTML",
     )
@@ -2704,13 +2705,46 @@ async def get_movie_by_code(message: Message):
 
 def looks_like_ai_movie_request(text: str) -> bool:
     normalized_text = text.casefold().replace("`", "'")
-    return (
-        "kino" in normalized_text
-        and any(
-            phrase in normalized_text
-            for phrase in ("ko'rgim", "ko'rmoq", "istayman", "tavsiya", "kelyapti")
-        )
+    mood_words = {
+        "sokin",
+        "kulgili",
+        "hayajonli",
+        "qayguli",
+        "romantik",
+        "muhabbat",
+        "jangari",
+        "qo'rqinchli",
+        "horror",
+        "drama",
+        "komediya",
+        "sarguzasht",
+        "fentezi",
+        "musiqali",
+        "misteriyali",
+        "triller",
+    }
+    request_phrases = (
+        "ko'rgim",
+        "ko'rmoq",
+        "istayman",
+        "tavsiya",
+        "kelyapti",
+        "izlayman",
+        "izlayapman",
+        "qidiryapman",
+        "bormoq",
+        "bo'lsin",
+        "kayfiyat",
+        "holat",
+        "qanday",
+        "xohlaysiz",
+        "xohlayman",
+        "xohlayapman",
+        "qaysi",
     )
+    has_mood = any(word in normalized_text for word in mood_words)
+    has_request = any(phrase in normalized_text for phrase in request_phrases)
+    return has_mood and (has_request or "kino" in normalized_text or "film" in normalized_text or "kayfiyat" in normalized_text)
 
 
 @dp.message(StateFilter(None), F.text)
