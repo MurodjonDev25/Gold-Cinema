@@ -784,8 +784,8 @@ def build_user_reply_keyboard() -> ReplyKeyboardMarkup:
     keyboard += [
         [KeyboardButton(text="🎲 Tasodifiy kino"), KeyboardButton(text="📅 Kunning kinosi")],
         [KeyboardButton(text="🔥 TOP kinolar"), KeyboardButton(text="⭐ Sevimlilarim")],
-        [KeyboardButton(text="📚 Kino ro'yxati"), KeyboardButton(text="💎 Premium")],
-        [KeyboardButton(text="🤖 AI tavsiya"), KeyboardButton(text="📝 Kino so'rash")],
+        [KeyboardButton(text="📚 Kino ro'yxati"), KeyboardButton(text="🤖 AI tavsiya")],
+        [KeyboardButton(text="💎 Premium"), KeyboardButton(text="📝 Kino so'rash")],
     ]
     return ReplyKeyboardMarkup(
         keyboard=keyboard,
