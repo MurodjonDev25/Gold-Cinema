@@ -61,9 +61,10 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
 AI_RECOMMENDATION_PRICE = 2000
 AI_RECOMMENDATION_PRICE_LABEL = f"{AI_RECOMMENDATION_PRICE:,}".replace(",", " ")
 PREMIUM_PLANS = {
-    "week": {"name": "1 hafta — 10 000 so'm", "duration": timedelta(days=7)},
-    "month": {"name": "1 oy — 25 000 so'm", "duration": timedelta(days=30)},
-    "year": {"name": "1 yil — 200 000 so'm", "duration": timedelta(days=365)},
+    "day": {"name": "1 kun — 2 000 so'm", "duration": timedelta(days=1)},
+    "week": {"name": "1 hafta — 7 000 so'm", "duration": timedelta(days=7)},
+    "month": {"name": "1 oy — 20 000 so'm", "duration": timedelta(days=30)},
+    "year": {"name": "1 yil — 150 000 so'm", "duration": timedelta(days=365)},
 }
 
 # Barcha foydalanuvchilar uchun kunlik kino limiti olib tashlangan.
@@ -108,9 +109,10 @@ dp = Dispatcher(storage=storage)
 def premium_plans_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🗓 1 hafta — 10 000 so'm", callback_data="premium_plan:week")],
-            [InlineKeyboardButton(text="📅 1 oy — 25 000 so'm", callback_data="premium_plan:month")],
-            [InlineKeyboardButton(text="👑 1 yil — 200 000 so'm", callback_data="premium_plan:year")],
+            [InlineKeyboardButton(text="📆 1 kun — 2 000 so'm", callback_data="premium_plan:day")],
+            [InlineKeyboardButton(text="🗓 1 hafta — 7 000 so'm", callback_data="premium_plan:week")],
+            [InlineKeyboardButton(text="📅 1 oy — 20 000 so'm", callback_data="premium_plan:month")],
+            [InlineKeyboardButton(text="👑 1 yil — 50 000 so'm", callback_data="premium_plan:year")],
         ]
     )
 
