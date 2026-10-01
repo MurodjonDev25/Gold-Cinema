@@ -2852,25 +2852,6 @@ async def search_movie_by_name(message: Message, state: FSMContext):
     current_state = await state.get_state()
     if current_state is not None:
         return
-    if (
-        message.from_user is not None
-        and has_premium_access(message.from_user.id)
-        and looks_like_ai_movie_request(message.text)
-    ):
-        try:
-            await send_ai_recommendation(message.from_user.id, message.text.strip())
-        except (
-            aiohttp.ClientError,
-            asyncio.TimeoutError,
-            TelegramBadRequest,
-            TelegramForbiddenError,
-            IndexError,
-            KeyError,
-            TypeError,
-            ValueError,
-        ):
-            await message.answer("⚠️ AI tavsiya yuborilmadi. Birozdan so'ng qayta urinib ko'ring.")
-        return
     matches = find_movie_matches(message.text)
     if not matches:
         await message.answer(
