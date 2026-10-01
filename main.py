@@ -745,8 +745,8 @@ def instagram_subscription_keyboard() -> InlineKeyboardMarkup:
 def instagram_subscription_text() -> str:
     return (
         "📷 <b>Botdan foydalanish uchun Instagram sahifalarimizga obuna bo'ling:</b>\n\n"
-        "1. @boxerlife26\n"
-        "2. @gold_cinema_pro\n\n"
+        "1. boxerlife26\n"
+        "2. gold_cinema_pro\n\n"
         "Ikkala sahifaga obuna bo'lgach, quyidagi tugmani bosing."
     )
 
