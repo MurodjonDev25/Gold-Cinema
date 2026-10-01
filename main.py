@@ -2771,6 +2771,11 @@ def looks_like_ai_movie_request(text: str) -> bool:
     if not normalized_text:
         return False
 
+    normalized_text = re.sub(r"[^a-zA-ZА-Яа-я0-9'\s,./|&+-]", " ", normalized_text)
+    normalized_text = re.sub(r"\s+", " ", normalized_text).strip()
+    if not normalized_text:
+        return False
+
     mood_words = {
         "kulgili",
         "hayajonli",
@@ -2791,6 +2796,7 @@ def looks_like_ai_movie_request(text: str) -> bool:
         "animatsiya",
         "anime",
         "cartoon",
+        "sokin",
     }
     request_phrases = (
         "ko'rgim",
@@ -2810,15 +2816,24 @@ def looks_like_ai_movie_request(text: str) -> bool:
         "xohlayman",
         "xohlayapman",
         "qaysi",
+        "toping",
+        "topib",
+        "tanla",
+        "bering",
     )
 
-    matched_word = next((word for word in mood_words if normalized_text == word), None)
-    if matched_word is not None:
+    tokens = {token.strip(" ,./|&+-") for token in normalized_text.split() if token.strip(" ,./|&+-")}
+    exact_match = normalized_text in mood_words or any(token in mood_words for token in tokens)
+    if exact_match:
         return True
 
-    has_mood = any(word in normalized_text for word in mood_words)
+    has_mood = any(token in mood_words for token in tokens)
     has_request = any(phrase in normalized_text for phrase in request_phrases)
-    return has_mood and (has_request or "kino" in normalized_text or "film" in normalized_text or "kayfiyat" in normalized_text)
+    if not has_mood:
+        return False
+
+    has_movie_context = "kino" in normalized_text or "film" in normalized_text or "kayfiyat" in normalized_text
+    return has_request or (has_movie_context and len(tokens) <= 8)
 
 
 @dp.message(StateFilter(None), F.text)
