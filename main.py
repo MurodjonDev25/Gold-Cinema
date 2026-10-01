@@ -2653,11 +2653,41 @@ async def get_movie_by_code(message: Message):
         await message.answer("❌ Bunday kodli kino topilmadi. Qayta urinib ko'ring.")
 
 
+def looks_like_ai_movie_request(text: str) -> bool:
+    normalized_text = text.casefold().replace("`", "'")
+    return (
+        "kino" in normalized_text
+        and any(
+            phrase in normalized_text
+            for phrase in ("ko'rgim", "ko'rmoq", "istayman", "tavsiya", "kelyapti")
+        )
+    )
+
+
 @dp.message(StateFilter(None), F.text)
-async def search_movie_by_name(message: Message):
+async def search_movie_by_name(message: Message, state: FSMContext):
     if message.text is None:
         return
     register_user(message.from_user)
+    if (
+        message.from_user is not None
+        and has_premium_access(message.from_user.id)
+        and looks_like_ai_movie_request(message.text)
+    ):
+        try:
+            await send_ai_recommendation(message.from_user.id, message.text.strip())
+        except (
+            aiohttp.ClientError,
+            asyncio.TimeoutError,
+            TelegramBadRequest,
+            TelegramForbiddenError,
+            IndexError,
+            KeyError,
+            TypeError,
+            ValueError,
+        ):
+            await message.answer("⚠️ AI tavsiya yuborilmadi. Birozdan so'ng qayta urinib ko'ring.")
+        return
     matches = find_movie_matches(message.text)
     if not matches:
         await message.answer(
