@@ -501,7 +501,7 @@ MOVIES_DATABASE = {
       "til": "O'zbek Tilida",
       "sifat": "1080P",
       "yil": "2026",
-      "janr": "Krminal, dramma",
+      "janr": "Jangari, kriminal ",
       "davlat": "Fransiya",
       "davomiyligi": "1 Soat 37 Minut",
         "is_premium": False,
