@@ -122,7 +122,9 @@ def normalize_genre_input(value: str) -> str:
     if not normalized:
         return ""
     normalized = normalized.replace("janri", "").replace("janr", "").strip()
-    return normalized
+    normalized = normalized.replace("&", ",").replace("/", ",")
+    normalized = re.sub(r"\s*,\s*", ",", normalized)
+    return normalized.strip(", .")
 
 
 async def get_ai_movie_recommendation(mood: str) -> tuple[str, str]:
@@ -141,33 +143,25 @@ async def get_ai_movie_recommendation(mood: str) -> tuple[str, str]:
     direct_genre = normalize_genre_input(mood)
     if direct_genre:
         genre_map = {
-            "qo'rqinchli": "qo'rqinchli",
-            "horror": "qo'rqinchli",
-            "hayajonli": "qo'rqinchli",
-            "dahshat": "qo'rqinchli",
-            "qonli": "qo'rqinchli",
-            "kulgili": "kulgili",
-            "komediya": "kulgili",
-            "kulgi": "kulgili",
-            "quvnoq": "kulgili",
-            "jangari": "jangari",
-            "urush": "jangari",
-            "action": "jangari",
-            "harakat": "jangari",
-            "romantik": "romantik",
-            "sevgi": "romantik",
-            "muhabbat": "romantik",
-            "drama": "drama",
-            "ta'sirli": "drama",
-            "qayg'uli": "drama",
-            "sokin": "sokin",
-            "sokinlik": "sokin",
+            "qo'rqinchli": {"qo'rqinchli", "horror", "hayajonli", "dahshat", "qonli", "ujas"},
+            "kulgili": {"kulgili", "komediya", "kulgi", "quvnoq"},
+            "jangari": {"jangari", "urush", "action", "harakat", "sarguzasht"},
+            "romantik": {"romantik", "sevgi", "muhabbat", "love"},
+            "drama": {"drama", "ta'sirli", "qayg'uli", "fantaziya", "fentezi"},
+            "multfilm": {"multfilm", "animatsiya", "cartoon", "anime"},
+            "sokin": {"sokin", "sokinlik", "tinch", "chill"},
         }
-        resolved_genre = genre_map.get(direct_genre)
+        genre_tokens = {token.strip() for token in re.split(r"[,/|&+\s]+", direct_genre) if token.strip()}
+        resolved_genre = None
+        for key, aliases in genre_map.items():
+            if key in genre_tokens or any(token in aliases for token in genre_tokens):
+                resolved_genre = key
+                break
+
         if resolved_genre:
             candidates = [
                 movie for movie in movies
-                if resolved_genre in str(movie["genres"]).casefold()
+                if any(alias in str(movie["genres"]).casefold() for alias in genre_map[resolved_genre])
             ]
             if candidates:
                 selected_movie = random.choice(candidates)
@@ -181,9 +175,10 @@ async def get_ai_movie_recommendation(mood: str) -> tuple[str, str]:
         preference_words = {
             "qo'rqinchli": {"qo'rqinchli", "horror", "dahshat", "qonli", "hayajonli"},
             "kulgili": {"kulgili", "komediya", "kulgi", "quvnoq"},
-            "jangari": {"jangari", "jang", "urush", "action", "harakat"},
-            "romantik": {"romantik", "sevgi", "muhabbat"},
-            "drama": {"drama", "ta'sirli", "qayg'uli"},
+            "jangari": {"jangari", "jang", "urush", "action", "harakat", "sarguzasht"},
+            "romantik": {"romantik", "sevgi", "muhabbat", "love"},
+            "drama": {"drama", "ta'sirli", "qayg'uli", "fantaziya", "fentezi"},
+            "multfilm": {"multfilm", "animatsiya", "cartoon", "anime"},
         }
         ranked_movies = []
         for movie in movies:
@@ -251,7 +246,23 @@ async def send_ai_recommendation(user_id: int, mood: str) -> None:
     movie = MOVIES_DATABASE[code]
     genre = escape(str(movie.get("janr") or "Noma'lum"))
     direct_genre = normalize_genre_input(mood)
-    is_direct_genre = bool(direct_genre and direct_genre in {"qo'rqinchli", "horror", "hayajonli", "dahshat", "qonli", "kulgili", "komediya", "kulgi", "quvnoq", "jangari", "urush", "action", "harakat", "romantik", "sevgi", "muhabbat", "drama", "ta'sirli", "qayg'uli", "sokin", "sokinlik"})
+    direct_genre_tokens = {
+        token.strip()
+        for token in re.split(r"[,/|&+\s]+", direct_genre)
+        if token.strip()
+    }
+    is_direct_genre = bool(
+        direct_genre_tokens
+        & {
+            "qo'rqinchli", "horror", "hayajonli", "dahshat", "qonli",
+            "kulgili", "komediya", "kulgi", "quvnoq",
+            "jangari", "urush", "action", "harakat",
+            "romantik", "sevgi", "muhabbat",
+            "drama", "ta'sirli", "qayg'uli",
+            "sokin", "sokinlik",
+            "multfilm", "animatsiya", "anime", "cartoon",
+        }
+    )
 
     intro = (
         "🤖 <b>Tanlangan janrga mos kino:</b>\n\n"
@@ -2761,7 +2772,6 @@ def looks_like_ai_movie_request(text: str) -> bool:
         return False
 
     mood_words = {
-        "sokin",
         "kulgili",
         "hayajonli",
         "qayguli",
@@ -2777,6 +2787,10 @@ def looks_like_ai_movie_request(text: str) -> bool:
         "musiqali",
         "misteriyali",
         "triller",
+        "multfilm",
+        "animatsiya",
+        "anime",
+        "cartoon",
     }
     request_phrases = (
         "ko'rgim",
