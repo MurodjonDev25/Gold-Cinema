@@ -915,7 +915,7 @@ def build_main_menu_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="💎 Premium", callback_data="premium_info"),
         ],
         [
-            InlineKeyboardButton(text="🤖 AI tavsiya · 3 000 so'm", callback_data="ai_recommend"),
+            InlineKeyboardButton(text="🤖 AI tavsiya · 2 000 so'm", callback_data="ai_recommend"),
             InlineKeyboardButton(text="📝 Kino so'rash", callback_data="menu_request"),
         ],
     ]
@@ -1137,7 +1137,7 @@ async def prompt_ai_recommendation(message: Message, state: FSMContext) -> None:
     )
 
 
-@dp.message(StateFilter(None), F.text.in_({"🤖 AI tavsiya", "🤖 AI tavsiya (3 000 so'm)"}))
+@dp.message(StateFilter(None), F.text.in_({"🤖 AI tavsiya", "🤖 AI tavsiya (2 000 so'm)"}))
 async def ai_recommendation_msg(message: Message, state: FSMContext):
     await prompt_ai_recommendation(message, state)
 
