@@ -85,6 +85,7 @@ DAILY_VIEWS: dict[int, dict] = {}       # {user_id: {"date": "YYYY-MM-DD", "coun
 REFERRALS: dict[int, set[int]] = {}     # {referrer_id: {taklif qilinganlar}}
 REFERRED_BY: dict[int, int] = {}        # {user_id: kim taklif qilgani}
 PREMIUM_SUBSCRIPTIONS: dict[int, str] = {}  # {user_id: amal qilish muddati (ISO datetime)}
+PREMIUM_OVERRIDES: dict[int, bool] = {}  # Admin bergan yoki bekor qilgan Premium holati
 PENDING_PREMIUM_PAYMENTS: dict[str, dict] = {}
 LIBRARY_PRICE = "9 900 so'm/oy"
 LIBRARY_SUBSCRIPTIONS: dict[int, str] = {}
@@ -459,7 +460,11 @@ def normalize_movie_schema() -> None:
 def has_premium_access(user_id: int | None) -> bool:
     if user_id is None:
         return False
-    if user_id == ADMIN_ID or user_id in PREMIUM_USERS:
+    if user_id == ADMIN_ID:
+        return True
+    if user_id in PREMIUM_OVERRIDES:
+        return PREMIUM_OVERRIDES[user_id]
+    if user_id in PREMIUM_USERS:
         return True
     expires_at = PREMIUM_SUBSCRIPTIONS.get(user_id)
     if not expires_at:
@@ -510,6 +515,7 @@ def save_data() -> None:
         "movies": movies_data,
         "premium_users": list(dict.fromkeys(PREMIUM_USERS)),
         "premium_subscriptions": {str(k): v for k, v in PREMIUM_SUBSCRIPTIONS.items()},
+        "premium_overrides": {str(k): v for k, v in PREMIUM_OVERRIDES.items()},
         "pending_premium_payments": PENDING_PREMIUM_PAYMENTS,
         "library_subscriptions": {str(k): v for k, v in LIBRARY_SUBSCRIPTIONS.items()},
         "pending_library_payments": PENDING_LIBRARY_PAYMENTS,
@@ -568,6 +574,10 @@ def load_data() -> None:
         PREMIUM_SUBSCRIPTIONS.update({
             int(user_id): str(expires_at)
             for user_id, expires_at in data.get("premium_subscriptions", {}).items()
+        })
+        PREMIUM_OVERRIDES.update({
+            int(user_id): bool(is_premium)
+            for user_id, is_premium in data.get("premium_overrides", {}).items()
         })
         PENDING_PREMIUM_PAYMENTS.update({
             str(payment_id): payment
@@ -818,6 +828,7 @@ def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="⭐ Premium boshqarish"), KeyboardButton(text="💎 VIP boshqarish")],
             [KeyboardButton(text="📥 Kino buyurtmalari"), KeyboardButton(text="💰 To'lovlar")],
             [KeyboardButton(text="🎁 Promo-kodlar"), KeyboardButton(text="👥 Referallar")],
+            [KeyboardButton(text="🏆 Taklif qilganlar")],
             [KeyboardButton(text="📢 Reklama yuborish"), KeyboardButton(text="⚙️ Sozlamalar")],
             [KeyboardButton(text="👤 Foydalanuvchi paneli")],
         ],
@@ -1254,6 +1265,7 @@ async def admin_panel_callback(call: CallbackQuery):
         "💰 To'lovlar",
         "🎁 Promo-kodlar",
         "👥 Referallar",
+        "🏆 Taklif qilganlar",
         "📢 Reklama yuborish",
         "⚙️ Sozlamalar",
     }),
@@ -1345,6 +1357,46 @@ async def admin_reply_panel_action(message: Message, state: FSMContext):
                 lines.append("\n⚠️ Ro'yxat uzunligi sababli qisqartirildi.")
                 break
             lines.append(line)
+        await message.answer(
+            "".join(lines),
+            parse_mode="HTML",
+            reply_markup=build_admin_reply_keyboard(),
+        )
+    elif action == "🏆 Taklif qilganlar":
+        inviters = sorted(
+            (
+                (user_id, len(REFERRALS.get(user_id, set())))
+                for user_id in ALL_USERS
+                if REFERRALS.get(user_id)
+            ),
+            key=lambda item: (-item[1], item[0]),
+        )
+        total_invited = sum(count for _, count in inviters)
+        lines = [
+            "🏆 <b>Do'st taklif qilgan foydalanuvchilar</b>\n\n",
+            f"Taklif qilganlar: <b>{len(inviters)}</b> ta | "
+            f"Jami takliflar: <b>{total_invited}</b>\n\n",
+        ]
+        for index, (user_id, count) in enumerate(inviters, 1):
+            info = USER_INFO.get(user_id, {})
+            name = escape(str(info.get("name", "Noma'lum")))
+            username = escape(str(info.get("username", "Mavjud emas")))
+            premium_status = "💎 Premium" if has_premium_access(user_id) else "🆓 Bepul"
+            line = (
+                f"{index}. <b>{name}</b> — <b>{count}</b> ta taklif | {premium_status}\n"
+                f"├ Username: {username}\n"
+                f"└ ID: <code>{user_id}</code>\n"
+            )
+            if sum(map(len, lines)) + len(line) > 3800:
+                lines.append("\n⚠️ Ro'yxat uzunligi sababli qisqartirildi.")
+                break
+            lines.append(line)
+        if not inviters:
+            lines.append("Hozircha do'st taklif qilgan foydalanuvchilar yo'q.")
+        lines.append(
+            "\nPremium berish uchun ID ni oling, so'ng "
+            "⭐ Premium boshqarish tugmasidan foydalaning."
+        )
         await message.answer(
             "".join(lines),
             parse_mode="HTML",
@@ -2577,17 +2629,28 @@ async def admin_premium_manage_finish(message: Message, state: FSMContext):
     except ValueError:
         await message.answer("⚠️ ID faqat raqamlardan iborat bo'ladi.")
         return
-    if user_id in PREMIUM_USERS or user_id in PREMIUM_SUBSCRIPTIONS:
-        if user_id in PREMIUM_USERS:
-            PREMIUM_USERS.remove(user_id)
+    if user_id == ADMIN_ID:
+        await state.clear()
+        await message.answer(
+            "ℹ️ Admin akkauntining Premium huquqini bu yerdan olib bo'lmaydi.",
+            reply_markup=build_admin_reply_keyboard(),
+        )
+        return
+    if has_premium_access(user_id):
+        PREMIUM_OVERRIDES[user_id] = False
         PREMIUM_SUBSCRIPTIONS.pop(user_id, None)
         result = "olib tashlandi"
     else:
-        PREMIUM_USERS.append(user_id)
+        PREMIUM_OVERRIDES[user_id] = True
         result = "berildi"
     save_data()
     await state.clear()
-    await message.answer(f"✅ <code>{user_id}</code> foydalanuvchiga Premium {result}.", parse_mode="HTML", reply_markup=build_admin_reply_keyboard())
+    status = "💎 Premium faol" if has_premium_access(user_id) else "🆓 Premium bekor qilindi"
+    await message.answer(
+        f"✅ <code>{user_id}</code> foydalanuvchiga Premium {result}.\n{status}",
+        parse_mode="HTML",
+        reply_markup=build_admin_reply_keyboard(),
+    )
 
 
 @dp.callback_query(F.data == "admin_premiere")
