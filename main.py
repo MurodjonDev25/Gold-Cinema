@@ -57,13 +57,13 @@ ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "").lstrip("@")
 CARD_NUMBER = os.getenv("CARD_NUMBER", "").strip()
 CARD_NAME = os.getenv("CARD_NAME", "").strip()
 PREMIUM_PLANS = {
-    "day": {"name": "1 kun — 2 000 so'm", "duration": timedelta(days=1)},
-    "week": {"name": "1 hafta — 7 000 so'm", "duration": timedelta(days=7)},
-    "month": {"name": "1 oy — 20 000 so'm", "duration": timedelta(days=30)},
-    "year": {"name": "1 yil — 150 000 so'm", "duration": timedelta(days=365)},
+    "day": {"period": "1 kun", "price": 2000, "duration": timedelta(days=1)},
+    "week": {"period": "1 hafta", "price": 7000, "duration": timedelta(days=7)},
+    "month": {"period": "1 oy", "price": 20000, "duration": timedelta(days=30)},
+    "year": {"period": "1 yil", "price": 150000, "duration": timedelta(days=365)},
 }
 
-# Barcha foydalanuvchilar uchun kunlik kino limiti olib tashlangan.
+# Kunlik bepul limit 0 bo'lsa, kinolar cheksiz ko'riladi.
 DAILY_FREE_LIMIT = 0
 
 PREMIUM_USERS = [
@@ -88,6 +88,15 @@ PREMIUM_SUBSCRIPTIONS: dict[int, str] = {}  # {user_id: amal qilish muddati (ISO
 PREMIUM_OVERRIDES: dict[int, bool] = {}  # Admin bergan yoki bekor qilgan Premium holati
 PENDING_PREMIUM_PAYMENTS: dict[str, dict] = {}
 LIBRARY_PRICE = "9 900 so'm/oy"
+BOT_SETTINGS = {
+    "card_number": CARD_NUMBER,
+    "card_name": CARD_NAME,
+    "instagram_required": True,
+    "instagram_accounts": list(INSTAGRAM_ACCOUNTS),
+    "daily_free_limit": DAILY_FREE_LIMIT,
+    "premium_prices": {code: int(plan["price"]) for code, plan in PREMIUM_PLANS.items()},
+    "library_price": 9900,
+}
 LIBRARY_SUBSCRIPTIONS: dict[int, str] = {}
 PENDING_LIBRARY_PAYMENTS: dict[str, dict] = {}
 WATCH_LATER: dict[int, set[str]] = {}
@@ -106,21 +115,112 @@ storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
 
 
+def format_som(amount: int) -> str:
+    return f"{amount:,}".replace(",", " ")
+
+
+def premium_plan_label(plan_code: str) -> str:
+    plan = PREMIUM_PLANS[plan_code]
+    return f"{plan['period']} — {format_som(int(plan['price']))} so'm"
+
+
+def apply_bot_settings(settings: object) -> None:
+    global CARD_NUMBER, CARD_NAME, DAILY_FREE_LIMIT, INSTAGRAM_ACCOUNTS, LIBRARY_PRICE
+    if not isinstance(settings, dict):
+        return
+    card_number = settings.get("card_number")
+    if isinstance(card_number, str):
+        CARD_NUMBER = card_number
+        BOT_SETTINGS["card_number"] = card_number
+    card_name = settings.get("card_name")
+    if isinstance(card_name, str):
+        CARD_NAME = card_name
+        BOT_SETTINGS["card_name"] = card_name
+    required = settings.get("instagram_required")
+    if isinstance(required, bool):
+        BOT_SETTINGS["instagram_required"] = required
+    accounts = settings.get("instagram_accounts")
+    if isinstance(accounts, list) and all(isinstance(item, str) for item in accounts):
+        normalized_accounts = [item.lstrip("@").strip() for item in accounts if item.strip()]
+        if normalized_accounts:
+            INSTAGRAM_ACCOUNTS = tuple(normalized_accounts)
+            BOT_SETTINGS["instagram_accounts"] = normalized_accounts
+    limit = settings.get("daily_free_limit")
+    if isinstance(limit, int) and not isinstance(limit, bool) and limit >= 0:
+        DAILY_FREE_LIMIT = limit
+        BOT_SETTINGS["daily_free_limit"] = limit
+    prices = settings.get("premium_prices")
+    if isinstance(prices, dict):
+        for code, amount in prices.items():
+            if code in PREMIUM_PLANS and isinstance(amount, int) and not isinstance(amount, bool) and amount >= 0:
+                PREMIUM_PLANS[code]["price"] = amount
+                BOT_SETTINGS["premium_prices"][code] = amount
+    library_price = settings.get("library_price")
+    if isinstance(library_price, int) and not isinstance(library_price, bool) and library_price >= 0:
+        BOT_SETTINGS["library_price"] = library_price
+        LIBRARY_PRICE = f"{format_som(library_price)} so'm/oy"
+
+
+def admin_settings_keyboard() -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton(text="💳 Karta ma'lumotlari", callback_data="admin_setting:card")],
+        [
+            InlineKeyboardButton(text="📷 Obuna sahifalari", callback_data="admin_setting:accounts"),
+            InlineKeyboardButton(
+                text="🔒 Obuna talabini " + ("o'chirish" if BOT_SETTINGS["instagram_required"] else "yoqish"),
+                callback_data="admin_setting:toggle_subscription",
+            ),
+        ],
+        [InlineKeyboardButton(text="🎬 Bepul kino limiti", callback_data="admin_setting:limit")],
+    ]
+    rows.extend(
+        [InlineKeyboardButton(
+            text=f"💎 Premium: {premium_plan_label(code)}",
+            callback_data=f"admin_setting:premium:{code}",
+        )]
+        for code in PREMIUM_PLANS
+    )
+    rows.extend([
+        [InlineKeyboardButton(text=f"📚 Kutubxona narxi: {LIBRARY_PRICE}", callback_data="admin_setting:library_price")],
+        [InlineKeyboardButton(text="◀️ Admin panel", callback_data="admin_panel")],
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def admin_settings_text() -> str:
+    accounts = ", ".join(f"@{name}" for name in INSTAGRAM_ACCOUNTS) or "Kiritilmagan"
+    subscription_status = "Yoqilgan" if BOT_SETTINGS["instagram_required"] else "O'chirilgan"
+    limit = f"{DAILY_FREE_LIMIT} ta/kun" if DAILY_FREE_LIMIT else "Cheksiz"
+    return (
+        "⚙️ <b>Bot sozlamalari</b>\n\n"
+        f"💳 Karta: <code>{escape(CARD_NUMBER or 'kiritilmagan')}</code>\n"
+        f"👤 Karta egasi: {escape(CARD_NAME or 'kiritilmagan')}\n"
+        f"📷 Obuna talabi: <b>{subscription_status}</b>\n"
+        f"📣 Obuna sahifalari: {escape(accounts)}\n"
+        f"🎬 Bepul kino limiti: <b>{limit}</b>\n"
+        f"📚 Kutubxona: <b>{escape(LIBRARY_PRICE)}</b>\n"
+        "Quyidagi tugmalardan sozlamani tanlang:"
+    )
+
+
 def premium_plans_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="📆 1 kun — 2 000 so'm", callback_data="premium_plan:day")],
-            [InlineKeyboardButton(text="🗓 1 hafta — 7 000 so'm", callback_data="premium_plan:week")],
-            [InlineKeyboardButton(text="📅 1 oy — 20 000 so'm", callback_data="premium_plan:month")],
-            [InlineKeyboardButton(text="👑 1 yil — 50 000 so'm", callback_data="premium_plan:year")],
+            [
+                InlineKeyboardButton(
+                    text=f"📆 {premium_plan_label(code)}",
+                    callback_data=f"premium_plan:{code}",
+                )
+            ]
+            for code in PREMIUM_PLANS
         ]
     )
 
 
 def gift_premium_plans_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"📆 {plan['name']}", callback_data=f"gift_plan:{code}")]
-        for code, plan in PREMIUM_PLANS.items()
+        [InlineKeyboardButton(text=f"📆 {premium_plan_label(code)}", callback_data=f"gift_plan:{code}")]
+        for code in PREMIUM_PLANS
     ])
 
 
@@ -151,6 +251,10 @@ class AdminPremium(StatesGroup):
 
 class AdminVip(StatesGroup):
     user_id = State()
+
+
+class AdminSettings(StatesGroup):
+    value = State()
 
 
 class AdminPremiere(StatesGroup):
@@ -516,6 +620,12 @@ def save_data() -> None:
         "premium_users": list(dict.fromkeys(PREMIUM_USERS)),
         "premium_subscriptions": {str(k): v for k, v in PREMIUM_SUBSCRIPTIONS.items()},
         "premium_overrides": {str(k): v for k, v in PREMIUM_OVERRIDES.items()},
+        "bot_settings": {
+            **BOT_SETTINGS,
+            "premium_prices": {
+                code: int(plan["price"]) for code, plan in PREMIUM_PLANS.items()
+            },
+        },
         "pending_premium_payments": PENDING_PREMIUM_PAYMENTS,
         "library_subscriptions": {str(k): v for k, v in LIBRARY_SUBSCRIPTIONS.items()},
         "pending_library_payments": PENDING_LIBRARY_PAYMENTS,
@@ -567,6 +677,7 @@ def load_data() -> None:
     try:
         with open(DATA_FILE, encoding="utf-8") as file:
             data = json.load(file)
+        apply_bot_settings(data.get("bot_settings", {}))
         if not PREMIUM_USERS_CONFIGURED:
             PREMIUM_USERS[:] = list(dict.fromkeys(
                 PREMIUM_USERS + [int(user_id) for user_id in data.get("premium_users", [])]
@@ -672,7 +783,11 @@ def get_callback_message(call: CallbackQuery) -> Message | None:
 
 
 def has_instagram_access(user_id: int | None) -> bool:
-    return user_id == ADMIN_ID or user_id in INSTAGRAM_CONFIRMED_USERS
+    return (
+        user_id == ADMIN_ID
+        or not BOT_SETTINGS["instagram_required"]
+        or user_id in INSTAGRAM_CONFIRMED_USERS
+    )
 
 
 def instagram_subscription_keyboard() -> InlineKeyboardMarkup:
@@ -693,11 +808,14 @@ def instagram_subscription_keyboard() -> InlineKeyboardMarkup:
 
 
 def instagram_subscription_text() -> str:
+    accounts = "\n".join(
+        f"{index}. {escape(username)}"
+        for index, username in enumerate(INSTAGRAM_ACCOUNTS, 1)
+    )
     return (
         "📷 <b>Botdan foydalanish uchun Instagram sahifalarimizga obuna bo'ling:</b>\n\n"
-        "1. boxerlife26\n"
-        "2. gold_cinema_pro\n\n"
-        "Ikkala sahifaga obuna bo'lgach, quyidagi tugmani bosing."
+        f"{accounts}\n\n"
+        "Barcha sahifalarga obuna bo'lgach, quyidagi tugmani bosing."
     )
 
 
@@ -746,7 +864,7 @@ def today_str() -> str:
 
 
 def get_remaining_free_views(user_id: int | None) -> int:
-    """Return -1 because the daily movie limit is disabled."""
+    """Return remaining daily free views, or -1 when views are unlimited."""
     if DAILY_FREE_LIMIT == 0:
         return -1
     if user_id is None or has_premium_access(user_id):
@@ -829,7 +947,7 @@ def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="📥 Kino buyurtmalari"), KeyboardButton(text="💰 To'lovlar")],
             [KeyboardButton(text="🎁 Promo-kodlar"), KeyboardButton(text="📢 Reklama yuborish")],
             [KeyboardButton(text="👥 Referallar"), KeyboardButton(text="🏆 Taklif qilganlar")],
-            [KeyboardButton(text="⚙️ Sozlamalar"), KeyboardButton(text="👤 Foydalanuvchi paneli")],
+            [KeyboardButton(text="📚 Kinolar ro'yxati"), KeyboardButton(text="👤 Foydalanuvchi paneli")],
         ],
         is_persistent=True,
         one_time_keyboard=False,
@@ -1166,7 +1284,7 @@ async def start_cmd(message: Message, command: CommandObject | None = None):
         )
         return
 
-    if message.from_user.id in INSTAGRAM_CONFIRMED_USERS:
+    if not BOT_SETTINGS["instagram_required"] or message.from_user.id in INSTAGRAM_CONFIRMED_USERS:
         await message.answer(
             f"👋 <b>Xush kelibsiz, {escape(message.from_user.full_name)}!</b>\n"
             "Kerakli bo'limni pastki menyudan tanlang:",
@@ -1272,7 +1390,7 @@ async def admin_panel_callback(call: CallbackQuery):
         "👥 Referallar",
         "🏆 Taklif qilganlar",
         "📢 Reklama yuborish",
-        "⚙️ Sozlamalar",
+        "📚 Kinolar ro'yxati",
     }),
 )
 async def admin_reply_panel_action(message: Message, state: FSMContext):
@@ -1405,16 +1523,142 @@ async def admin_reply_panel_action(message: Message, state: FSMContext):
     elif action == "📢 Reklama yuborish":
         await state.set_state(BroadcastState.message)
         await message.answer("📢 Barcha foydalanuvchilarga yuboriladigan xabar matnini kiriting:")
-    elif action == "⚙️ Sozlamalar":
+    elif action == "📚 Kinolar ro'yxati":
         await message.answer(
-            "⚙️ <b>Sozlamalar</b>\n\n"
-            f"🎬 Kinolar: <b>{len(MOVIES_DATABASE)}</b>\n"
-            f"👥 Foydalanuvchilar: <b>{len(ALL_USERS)}</b>\n"
-            f"🎞 Premyera kodi: <code>{escape(str(CURRENT_PREMIERE or 'yo‘q'))}</code>\n"
-            "To'lov kartasi va admin ma'lumotlari .env faylidan boshqariladi.",
+            build_movie_admin_list(),
             parse_mode="HTML",
             reply_markup=build_admin_reply_keyboard(),
         )
+
+
+@dp.callback_query(F.data.startswith("admin_setting:"))
+async def admin_setting_action(call: CallbackQuery, state: FSMContext):
+    if call.from_user.id != ADMIN_ID or not call.data:
+        await call.answer("❌ Ruxsat yo'q.", show_alert=True)
+        return
+    await state.clear()
+    setting = call.data.removeprefix("admin_setting:")
+    if setting == "toggle_subscription":
+        BOT_SETTINGS["instagram_required"] = not BOT_SETTINGS["instagram_required"]
+        save_data()
+        await call.answer(
+            "✅ Obuna talabi " +
+            ("yoqildi." if BOT_SETTINGS["instagram_required"] else "o'chirildi.")
+        )
+        message = get_callback_message(call)
+        if message:
+            await message.edit_text(
+                admin_settings_text(),
+                parse_mode="HTML",
+                reply_markup=admin_settings_keyboard(),
+            )
+        return
+    else:
+        prompts = {
+            "card": (
+                "💳 Karta raqami va egasini bitta qatorda yuboring:\n"
+                "<code>8600 0000 0000 0000 | Ism Familiya</code>"
+            ),
+            "accounts": (
+                "📷 Instagram username'larini vergul bilan ajratib yuboring "
+                "(masalan: <code>account_one, account_two</code>)."
+            ),
+            "limit": (
+                "🎬 Kunlik bepul kino limitini raqamda yuboring.\n"
+                "<code>0</code> — cheksiz, masalan <code>5</code> — kuniga 5 ta."
+            ),
+            "library_price": "📚 Kutubxonaning oylik narxini so'mda yuboring (faqat raqam).",
+        }
+        if setting.startswith("premium:"):
+            plan_code = setting.split(":", 1)[1]
+            if plan_code not in PREMIUM_PLANS:
+                await call.answer("❌ Premium tarifi topilmadi.", show_alert=True)
+                return
+            setting = f"premium:{plan_code}"
+            prompts[setting] = (
+                f"💎 {PREMIUM_PLANS[plan_code]['period']} Premium narxini so'mda yuboring "
+                "(faqat raqam)."
+            )
+        prompt = prompts.get(setting)
+        if prompt is None:
+            await call.answer("❌ Sozlama topilmadi.", show_alert=True)
+            return
+        await state.update_data(settings_key=setting)
+        await state.set_state(AdminSettings.value)
+        await call.answer()
+        message = get_callback_message(call)
+        if message:
+            await message.answer(prompt, parse_mode="HTML")
+            return
+
+    await call.answer()
+    message = get_callback_message(call)
+    if message:
+        await message.edit_text(
+            admin_settings_text(),
+            parse_mode="HTML",
+            reply_markup=admin_settings_keyboard(),
+        )
+
+
+@dp.message(AdminSettings.value, F.text)
+async def admin_setting_value(message: Message, state: FSMContext):
+    if message.from_user is None or message.from_user.id != ADMIN_ID or message.text is None:
+        return
+    state_data = await state.get_data()
+    setting = state_data.get("settings_key")
+    value = message.text.strip()
+    if setting == "card":
+        parts = value.split("|", 1)
+        if len(parts) != 2:
+            await message.answer("⚠️ Karta raqami va egasini <code>raqam | ism</code> ko'rinishida yuboring.", parse_mode="HTML")
+            return
+        card_number, card_name = (part.strip() for part in parts)
+        normalized_card = card_number.replace(" ", "").replace("-", "")
+        if not normalized_card.isdigit() or not 12 <= len(normalized_card) <= 19 or not card_name:
+            await message.answer("⚠️ Karta raqamini tekshiring (12–19 raqam) va egasining ismini kiriting.")
+            return
+        BOT_SETTINGS["card_number"] = card_number
+        BOT_SETTINGS["card_name"] = card_name
+    elif setting == "accounts":
+        accounts = [item.strip().lstrip("@") for item in value.split(",") if item.strip()]
+        if not accounts or any(not re.fullmatch(r"[A-Za-z0-9._]{1,30}", item) for item in accounts):
+            await message.answer("⚠️ Kamida bitta to'g'ri Instagram username yuboring; @ va vergul ishlatish mumkin.")
+            return
+        BOT_SETTINGS["instagram_accounts"] = accounts
+    elif setting == "limit":
+        if not value.isdigit() or int(value) > 10000:
+            await message.answer("⚠️ Limit 0 dan 10000 gacha bo'lgan butun son bo'lishi kerak.")
+            return
+        BOT_SETTINGS["daily_free_limit"] = int(value)
+    elif setting == "library_price" or (isinstance(setting, str) and setting.startswith("premium:")):
+        normalized_price = value.replace(" ", "").replace(",", "").replace(".", "")
+        if not normalized_price.isdigit() or int(normalized_price) > 1_000_000_000:
+            await message.answer("⚠️ Narxni 0 dan 1 000 000 000 gacha raqam bilan yuboring.")
+            return
+        amount = int(normalized_price)
+        if setting == "library_price":
+            BOT_SETTINGS["library_price"] = amount
+        else:
+            plan_code = setting.split(":", 1)[1]
+            if plan_code not in PREMIUM_PLANS:
+                await state.clear()
+                await message.answer("❌ Premium tarifi topilmadi. Sozlamani qayta oching.")
+                return
+            BOT_SETTINGS["premium_prices"][plan_code] = amount
+    else:
+        await state.clear()
+        await message.answer("❌ Sozlama topilmadi. Sozlamalar bo'limini qayta oching.")
+        return
+
+    apply_bot_settings(BOT_SETTINGS)
+    save_data()
+    await state.clear()
+    await message.answer(
+        "✅ Sozlama saqlandi.\n\n" + admin_settings_text(),
+        parse_mode="HTML",
+        reply_markup=admin_settings_keyboard(),
+    )
 
 
 @dp.callback_query(F.data == "premium_info")
@@ -1507,7 +1751,7 @@ async def gift_premium_plan_selected(call: CallbackQuery, state: FSMContext):
         return
     await state.set_state(PremiumPaymentState.waiting_receipt)
     await state.update_data(
-        plan=plan["name"],
+        plan=premium_plan_label(plan_code),
         plan_code=plan_code,
         gift_recipient_id=recipient_id,
     )
@@ -1516,7 +1760,7 @@ async def gift_premium_plan_selected(call: CallbackQuery, state: FSMContext):
     if message:
         card_name = CARD_NAME or "Ko'rsatilmagan"
         await message.answer(
-            f"🎁 <b>Tanlangan sovg'a tarifi:</b> {escape(plan['name'])}\n\n"
+            f"🎁 <b>Tanlangan sovg'a tarifi:</b> {escape(premium_plan_label(plan_code))}\n\n"
             f"💳 <b>Karta raqami:</b> <code>{escape(CARD_NUMBER)}</code>\n"
             f"👤 <b>Karta egasi:</b> {escape(card_name)}\n\n"
             "To'lovdan so'ng chek rasmini yoki faylini yuboring. "
@@ -1540,14 +1784,14 @@ async def premium_plan_selected(call: CallbackQuery, state: FSMContext):
         return
     await state.clear()
     await state.set_state(PremiumPaymentState.waiting_receipt)
-    await state.update_data(plan=plan["name"], plan_code=plan_code)
+    await state.update_data(plan=premium_plan_label(plan_code), plan_code=plan_code)
     await call.answer("✅ Tarif tanlandi!")
     message = get_callback_message(call)
     if message:
         card_number = CARD_NUMBER or "Karta raqami sozlanmagan"
         card_name = CARD_NAME or "Karta egasi ko'rsatilmagan"
         await message.answer(
-            f"💎 <b>Tanlangan tarif:</b> {plan['name']}\n\n"
+            f"💎 <b>Tanlangan tarif:</b> {premium_plan_label(plan_code)}\n\n"
             f"💳 <b>Karta raqami:</b> <code>{escape(card_number)}</code>\n"
             f"👤 <b>Karta egasi:</b> {escape(card_name)}\n\n"
             "To'lovni amalga oshirgach, chek rasmini yoki faylini shu chatga yuboring.\n"
@@ -1659,7 +1903,7 @@ async def approve_premium_payment(call: CallbackQuery):
         else "✅ To'lovingiz tasdiqlandi! Gold Cinema Premium faollashtirildi.\n"
     )
     activation_text += (
-        f"📦 Tarif: {escape(str(payment.get('plan', PREMIUM_PLANS[plan_code]['name'])))}\n"
+        f"📦 Tarif: {escape(str(payment.get('plan', premium_plan_label(plan_code))))}\n"
         f"⏳ Amal qilish muddati: <b>{expires_at.strftime('%d.%m.%Y %H:%M')}</b>"
     )
     try:
@@ -2832,6 +3076,19 @@ async def send_movie(target: Message, code: str, movie: dict, user_id: int | Non
             instagram_subscription_text(),
             parse_mode="HTML",
             reply_markup=instagram_subscription_keyboard(),
+        )
+        return
+    if (
+        user_id is not None
+        and user_id != ADMIN_ID
+        and not has_premium_access(user_id)
+        and DAILY_FREE_LIMIT > 0
+        and get_remaining_free_views(user_id) <= 0
+    ):
+        await target.answer(
+            f"🎬 Bugungi bepul kino limitingiz ({DAILY_FREE_LIMIT} ta) tugadi.\n"
+            "Cheksiz tomosha qilish uchun Premium tarifini tanlang:",
+            reply_markup=premium_plans_keyboard(),
         )
         return
     send_method = target.answer_document if movie.get("media_type") == "document" else target.answer_video
