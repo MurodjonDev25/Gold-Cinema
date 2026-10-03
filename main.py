@@ -11,7 +11,7 @@ from uuid import uuid4
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
-from aiogram.filters import CommandObject, CommandStart, StateFilter
+from aiogram.filters import CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -1254,7 +1254,6 @@ async def admin_panel_callback(call: CallbackQuery):
 
 
 @dp.message(
-    StateFilter(None),
     F.text.in_({
         "📊 Statistika",
         "👥 Foydalanuvchilar",
@@ -1278,6 +1277,7 @@ async def admin_reply_panel_action(message: Message, state: FSMContext):
         return
 
     action = message.text
+    await state.clear()
     if action == "📊 Statistika":
         total_views = sum(VIEWS.values())
         total_likes = sum(len(movie["likes"]) for movie in MOVIES_DATABASE.values())
