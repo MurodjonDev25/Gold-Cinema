@@ -826,6 +826,7 @@ def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="📊 Statistika"), KeyboardButton(text="👥 Foydalanuvchilar")],
             [KeyboardButton(text="🎬 Kino qo'shish"), KeyboardButton(text="🗑 Kino o'chirish")],
             [KeyboardButton(text="⭐ Premium boshqarish"), KeyboardButton(text="💎 VIP boshqarish")],
+            [KeyboardButton(text="💎 Premium berish"), KeyboardButton(text="🚫 Premium olish")],
             [KeyboardButton(text="📥 Kino buyurtmalari"), KeyboardButton(text="💰 To'lovlar")],
             [KeyboardButton(text="🎁 Promo-kodlar"), KeyboardButton(text="👥 Referallar")],
             [KeyboardButton(text="🏆 Taklif qilganlar")],
@@ -1260,6 +1261,8 @@ async def admin_panel_callback(call: CallbackQuery):
         "🎬 Kino qo'shish",
         "🗑 Kino o'chirish",
         "⭐ Premium boshqarish",
+        "💎 Premium berish",
+        "🚫 Premium olish",
         "💎 VIP boshqarish",
         "📥 Kino buyurtmalari",
         "💰 To'lovlar",
@@ -1300,8 +1303,18 @@ async def admin_reply_panel_action(message: Message, state: FSMContext):
             "🗑 O'chiriladigan kino kodini yuboring:\nBekor qilish uchun /cancel yuboring."
         )
     elif action == "⭐ Premium boshqarish":
+        await state.update_data(premium_action="toggle")
         await state.set_state(AdminPremium.user_id)
         await message.answer("⭐ Premium berish yoki olish uchun foydalanuvchi Telegram ID sini yuboring:")
+    elif action in {"💎 Premium berish", "🚫 Premium olish"}:
+        premium_action = "grant" if action == "💎 Premium berish" else "revoke"
+        await state.update_data(premium_action=premium_action)
+        await state.set_state(AdminPremium.user_id)
+        instruction = "beriladigan" if premium_action == "grant" else "olinadigan"
+        await message.answer(
+            f"{action} uchun foydalanuvchining Telegram ID sini yuboring "
+            f"(Premium {instruction} foydalanuvchi)."
+        )
     elif action == "💎 VIP boshqarish":
         await state.set_state(AdminVip.user_id)
         active_vips = sum(
@@ -2629,6 +2642,8 @@ async def admin_premium_manage_finish(message: Message, state: FSMContext):
     except ValueError:
         await message.answer("⚠️ ID faqat raqamlardan iborat bo'ladi.")
         return
+    state_data = await state.get_data()
+    premium_action = state_data.get("premium_action", "toggle")
     if user_id == ADMIN_ID:
         await state.clear()
         await message.answer(
@@ -2636,14 +2651,29 @@ async def admin_premium_manage_finish(message: Message, state: FSMContext):
             reply_markup=build_admin_reply_keyboard(),
         )
         return
-    if has_premium_access(user_id):
+    currently_premium = has_premium_access(user_id)
+    if premium_action == "grant" and currently_premium:
+        result = "allaqachon faol"
+    elif premium_action == "revoke" and not currently_premium:
+        result = "allaqachon faol emas"
+    elif premium_action == "grant":
+        PREMIUM_OVERRIDES[user_id] = True
+        result = "berildi"
+        save_data()
+    elif premium_action == "revoke":
         PREMIUM_OVERRIDES[user_id] = False
         PREMIUM_SUBSCRIPTIONS.pop(user_id, None)
         result = "olib tashlandi"
+        save_data()
+    elif currently_premium:
+        PREMIUM_OVERRIDES[user_id] = False
+        PREMIUM_SUBSCRIPTIONS.pop(user_id, None)
+        result = "olib tashlandi"
+        save_data()
     else:
         PREMIUM_OVERRIDES[user_id] = True
         result = "berildi"
-    save_data()
+        save_data()
     await state.clear()
     status = "💎 Premium faol" if has_premium_access(user_id) else "🆓 Premium bekor qilindi"
     await message.answer(
