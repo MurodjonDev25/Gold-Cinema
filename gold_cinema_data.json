@@ -265,6 +265,10 @@
     8234785808
   ],
   "premium_subscriptions": {},
+  "premium_overrides": {
+    "2138780687": false,
+    "7946231035": false
+  },
   "pending_premium_payments": {},
   "all_users": [
     8234785808,
