@@ -832,6 +832,8 @@ def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="⚙️ Sozlamalar"), KeyboardButton(text="👤 Foydalanuvchi paneli")],
         ],
         is_persistent=True,
+        one_time_keyboard=False,
+        input_field_placeholder="Admin panel tugmalarini tanlang",
         resize_keyboard=True,
     )
 
@@ -1198,9 +1200,10 @@ async def instagram_subscription_confirmed(call: CallbackQuery):
 
 
 @dp.message(F.text == "👑 Admin panel")
-async def admin_panel_msg(message: Message):
+async def admin_panel_msg(message: Message, state: FSMContext):
     if message.from_user is None or message.from_user.id != ADMIN_ID:
         return
+    await state.clear()
     await message.answer(
         "👑 <b>ADMIN PANEL</b>\nKerakli amalni pastki paneldan tanlang:",
         parse_mode="HTML",
