@@ -2187,7 +2187,7 @@ async def admin_users_msg(message: Message, premium_filter: bool | None = None):
             reply_markup=build_admin_reply_keyboard(),
         )
         return
-    premium_count = sum(has_premium_access(user_id) for user_id in user_ids)
+    premium_count = sum(not has_premium_access(user_id) for user_id in user_ids)
     free_count = len(user_ids) - premium_count
     text = (
         f"{title} (jami: {len(user_ids)} ta)\n"
@@ -2198,16 +2198,9 @@ async def admin_users_msg(message: Message, premium_filter: bool | None = None):
         name = info.get("name", "Noma'lum")
         joined = info.get("joined", "Noma'lum")
         phone = info.get("phone", "Mavjud emas")
-        premium_status = "🆓 Bepul"
-        if has_premium_access(user_id):
-            premium_status = "💎 Premium"
-            expires_at = PREMIUM_SUBSCRIPTIONS.get(user_id)
-            if expires_at:
-                try:
-                    expiry_label = datetime.fromisoformat(expires_at).strftime("%d.%m.%Y %H:%M")
-                    premium_status += f" (tugaydi: {expiry_label})"
-                except ValueError as error:
-                    print(f"Premium muddati formatida xatolik (ID {user_id}): {error}")
+        premium_status = (
+            "🆓 Bepul" if has_premium_access(user_id) else "💎 Premium"
+        )
         text += (
             f"<b>{idx}. {escape(str(name))}</b>\n"
             f"├ ID: <code>{user_id}</code>\n"
