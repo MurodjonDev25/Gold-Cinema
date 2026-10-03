@@ -919,21 +919,18 @@ def build_movie_keyboard(code: str, movie: dict, user_id: int | None = None) -> 
     dislikes = len(movie["dislikes"])
     library_access = has_library_access(user_id)
     is_fav = library_access and code in FAVORITES.get(user_id, set())
-    is_later = library_access and code in WATCH_LATER.get(user_id, set())
+    is_later = user_id is not None and code in WATCH_LATER.get(user_id, set())
     fav_text = ("💛 Saqlangan" if is_fav else "⭐ Sevimliga") if library_access else "🔒 Sevimlilar"
-    later_text = ("🕒 Keyinroq saqlangan" if is_later else "🕒 Keyinroq") if library_access else "🔒 Keyinroq"
+    later_text = "✅ Keyin ko'raman" if is_later else "🕒 Keyin ko'raman"
 
     keyboard = [
         [
             InlineKeyboardButton(text=f"👍 {likes}", callback_data=f"like:{code}"),
             InlineKeyboardButton(text=f"👎 {dislikes}", callback_data=f"dislike:{code}"),
         ],
-        [
-            InlineKeyboardButton(text=fav_text, callback_data=f"fav:{code}"),
-            InlineKeyboardButton(text=later_text, callback_data=f"later:{code}"),
-        ],
+        [InlineKeyboardButton(text=fav_text, callback_data=f"fav:{code}")],
         [InlineKeyboardButton(text="🔄 Boshqa kino", callback_data="menu_rand")],
-        [InlineKeyboardButton(text="🧭 Bosh menyu", callback_data="menu_home")],
+        [InlineKeyboardButton(text=later_text, callback_data=f"later:{code}")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
@@ -962,7 +959,7 @@ def build_user_reply_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
         [KeyboardButton(text="🔎 Kino qidirish"), KeyboardButton(text="🔥 Yangi kinolar")],
         [KeyboardButton(text="⭐ Premium"), KeyboardButton(text="🎁 Premium sovg'a qilish")],
         [KeyboardButton(text="📥 Kino buyurtma qilish"), KeyboardButton(text="❤️ Sevimlilar")],
-        [KeyboardButton(text="📜 Kino tarixi"), KeyboardButton(text="👤 Mening profilim")],
+        [KeyboardButton(text="🕒 Keyin ko'raman"), KeyboardButton(text="👤 Mening profilim")],
         [KeyboardButton(text="💎 VIP"), KeyboardButton(text="👥 Referal")],
     ]
     if is_admin:
@@ -1025,7 +1022,7 @@ def library_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="⭐ Sevimli filmlar", callback_data="library_view:favorites"),
-            InlineKeyboardButton(text="🕒 Keyinroq", callback_data="library_view:later"),
+            InlineKeyboardButton(text="🕒 Keyin ko'raman", callback_data="library_view:later"),
         ],
         [
             InlineKeyboardButton(text="✅ Ko'rish tarixi", callback_data="library_view:history"),
@@ -1044,7 +1041,7 @@ def library_later_keyboard(codes: list[str]) -> InlineKeyboardMarkup:
         for code in codes
         if code in MOVIES_DATABASE
     ]
-    buttons.append([InlineKeyboardButton(text="◀️ Kutubxona", callback_data="menu_library")])
+    buttons.append([InlineKeyboardButton(text="◀️ Panelga qaytish", callback_data="user_panel")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -1104,7 +1101,7 @@ async def send_library_offer(message: Message) -> None:
     await message.answer(
         "📚 <b>Shaxsiy kino kutubxonasi</b>\n\n"
         "⭐ Sevimli filmlar\n"
-        "🕒 Keyinroq ko'rish ro'yxati\n"
+        "🕒 Keyin ko'raman ro'yxati\n"
         "✅ Ko'rish tarixi\n"
         "🎯 Sizga mos shaxsiy tavsiyalar\n\n"
         "Ko'rish tarixi obuna faol bo'lgan vaqtdagi kinolarni saqlaydi.\n"
@@ -1140,7 +1137,7 @@ async def send_library_home(message: Message, user_id: int) -> None:
 
 
 async def send_library_section(message: Message, user_id: int, section: str) -> None:
-    if not has_library_access(user_id):
+    if section != "later" and not has_library_access(user_id):
         await send_library_offer(message)
         return
 
@@ -1164,10 +1161,10 @@ async def send_library_section(message: Message, user_id: int, section: str) -> 
         )
         matches = {code: MOVIES_DATABASE[code] for code in codes}
         if not codes:
-            await message.answer("🕒 Keyinroq ko'rish ro'yxatingiz bo'sh.")
+            await message.answer("🕒 Keyin ko'raman ro'yxatingiz bo'sh.")
             return
         await message.answer(
-            build_results_text("🕒 <b>Keyinroq ko'rish ro'yxati:</b>", matches),
+            build_results_text("🕒 <b>Keyin ko'raman ro'yxati:</b>", matches),
             parse_mode="HTML",
             reply_markup=library_later_keyboard(codes[:20]),
         )
@@ -3276,10 +3273,10 @@ async def favorites_msg(message: Message):
     await send_library_section(message, user_id, "favorites")
 
 
-@dp.message(F.text == "📜 Kino tarixi")
-async def movie_history_msg(message: Message):
+@dp.message(F.text == "🕒 Keyin ko'raman")
+async def watch_later_msg(message: Message):
     user_id = message.from_user.id if message.from_user else 0
-    await send_library_section(message, user_id, "history")
+    await send_library_section(message, user_id, "later")
 
 
 @dp.message(F.text == "📚 Shaxsiy kutubxona")
@@ -3321,12 +3318,6 @@ async def remove_from_watch_later(call: CallbackQuery):
     if not call.data:
         await call.answer("⚠️ Kino topilmadi.", show_alert=True)
         return
-    if not has_library_access(call.from_user.id):
-        await call.answer("🔒 Bu bo'lim uchun kutubxona obunasi kerak.", show_alert=True)
-        message = get_callback_message(call)
-        if message:
-            await send_library_offer(message)
-        return
     code = call.data.split(":", 1)[1]
     if code not in WATCH_LATER.get(call.from_user.id, set()):
         await call.answer("Bu kino ro'yxatda yo'q.")
@@ -3343,15 +3334,15 @@ async def remove_from_watch_later(call: CallbackQuery):
         matches = {item: MOVIES_DATABASE[item] for item in codes}
         if codes:
             await message.edit_text(
-                build_results_text("🕒 <b>Keyinroq ko'rish ro'yxati:</b>", matches),
+                build_results_text("🕒 <b>Keyin ko'raman ro'yxati:</b>", matches),
                 parse_mode="HTML",
                 reply_markup=library_later_keyboard(codes[:20]),
             )
         else:
             await message.edit_text(
-                "🕒 Keyinroq ko'rish ro'yxatingiz bo'sh.",
+                "🕒 Keyin ko'raman ro'yxatingiz bo'sh.",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
-                    InlineKeyboardButton(text="◀️ Kutubxona", callback_data="menu_library")
+                    InlineKeyboardButton(text="◀️ Panelga qaytish", callback_data="user_panel")
                 ]]),
             )
 
@@ -3666,19 +3657,13 @@ async def toggle_watch_later(call: CallbackQuery):
         await call.answer("❌ Kino topilmadi.", show_alert=True)
         return
     user_id = call.from_user.id
-    if not has_library_access(user_id):
-        await call.answer("🔒 Keyinroq ro'yxati uchun pullik kutubxona kerak.", show_alert=True)
-        message = get_callback_message(call)
-        if message:
-            await send_library_offer(message)
-        return
     later = WATCH_LATER.setdefault(user_id, set())
     if code in later:
         later.discard(code)
-        await call.answer("🗑 Keyinroq ro'yxatidan olib tashlandi.")
+        await call.answer("🗑 Keyin ko'raman ro'yxatidan olib tashlandi.")
     else:
         later.add(code)
-        await call.answer("🕒 Keyinroq ko'rish ro'yxatiga qo'shildi.")
+        await call.answer("🕒 Keyin ko'raman ro'yxatiga qo'shildi.")
     save_data()
     message = get_callback_message(call)
     if message:
