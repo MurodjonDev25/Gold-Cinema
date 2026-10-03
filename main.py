@@ -970,6 +970,9 @@ def build_user_reply_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
         keyboard.append([KeyboardButton(text="📞 Yordam")])
     return ReplyKeyboardMarkup(
         keyboard=keyboard,
+        is_persistent=True,
+        one_time_keyboard=False,
+        input_field_placeholder="Gold Cinema menyusidan tanlang",
         resize_keyboard=True,
     )
 
@@ -1325,6 +1328,17 @@ async def admin_panel_msg(message: Message, state: FSMContext):
     await message.answer(
         "👑 <b>ADMIN PANEL</b>\nKerakli amalni pastki paneldan tanlang:",
         parse_mode="HTML",
+        reply_markup=build_admin_reply_keyboard(),
+    )
+
+
+@dp.message(F.text == "⬇️ Tugmalarni yashirish")
+async def refresh_legacy_admin_keyboard(message: Message, state: FSMContext):
+    if message.from_user is None or message.from_user.id != ADMIN_ID:
+        return
+    await state.clear()
+    await message.answer(
+        "✅ Admin panel yangilandi.",
         reply_markup=build_admin_reply_keyboard(),
     )
 
