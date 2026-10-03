@@ -821,6 +821,7 @@ def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="📢 Reklama yuborish"), KeyboardButton(text="⚙️ Sozlamalar")],
             [KeyboardButton(text="👤 Foydalanuvchi paneli")],
         ],
+        is_persistent=True,
         resize_keyboard=True,
     )
 
