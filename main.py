@@ -955,7 +955,8 @@ def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
 def build_user_reply_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
     """Foydalanuvchi uchun so'ralgan 2 ustunli boshqaruv paneli."""
     keyboard = [
-        [KeyboardButton(text="🔎 Kino qidirish"), KeyboardButton(text="🔥 Yangi kinolar")],
+        [KeyboardButton(text="🔎 Kino qidirish")],
+        [KeyboardButton(text="🔥 Yangi kinolar")],
         [KeyboardButton(text="⭐ Premium"), KeyboardButton(text="🎁 Premium sovg'a qilish")],
         [KeyboardButton(text="📥 Kino buyurtma qilish"), KeyboardButton(text="🎬 Kino imkoniyatlari")],
         [KeyboardButton(text="👤 Mening profilim"), KeyboardButton(text="👥 Referal")],
