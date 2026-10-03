@@ -837,34 +837,6 @@ def build_user_reply_keyboard() -> ReplyKeyboardMarkup:
     )
 
 
-def build_main_menu_keyboard() -> InlineKeyboardMarkup:
-    """Foydalanuvchi panelidagi amallar uchun inline menyu."""
-    keyboard = [
-        [
-            InlineKeyboardButton(text="🔎 Kino qidirish", callback_data="menu_search"),
-            InlineKeyboardButton(text="🔥 Yangi kinolar", callback_data="menu_new"),
-        ],
-        [
-            InlineKeyboardButton(text="⭐ Premium", callback_data="premium_info"),
-            InlineKeyboardButton(text="🎁 Premium sovg'a qilish", callback_data="gift_premium"),
-        ],
-        [
-            InlineKeyboardButton(text="📥 Kino buyurtma qilish", callback_data="menu_request"),
-            InlineKeyboardButton(text="❤️ Sevimlilar", callback_data="library_view:favorites"),
-        ],
-        [
-            InlineKeyboardButton(text="📜 Kino tarixi", callback_data="library_view:history"),
-            InlineKeyboardButton(text="👤 Mening profilim", callback_data="menu_stats"),
-        ],
-        [
-            InlineKeyboardButton(text="💎 VIP", callback_data="menu_library"),
-            InlineKeyboardButton(text="👥 Referal", callback_data="menu_referral"),
-        ],
-        [InlineKeyboardButton(text="📞 Yordam", callback_data="menu_help")],
-    ]
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
-
-
 def build_admin_panel_keyboard() -> InlineKeyboardMarkup:
     keyboard = [
         [InlineKeyboardButton(text="📊 Statistika", callback_data="admin_stats"),
@@ -1183,9 +1155,22 @@ async def start_cmd(message: Message, command: CommandObject | None = None):
     if message.from_user.id == ADMIN_ID:
         await message.answer(
             f"👑 <b>Xush kelibsiz, Admin {message.from_user.full_name}!</b>\n\n"
-            "Admin paneli pastki menyuga joylandi:",
+            "Kerakli amalni tanlang:",
             parse_mode="HTML",
+            reply_markup=build_admin_panel_keyboard(),
+        )
+        await message.answer(
+            "Panelni almashtirish uchun pastki tugmalardan foydalaning:",
             reply_markup=build_admin_reply_keyboard(),
+        )
+        return
+
+    if message.from_user.id in INSTAGRAM_CONFIRMED_USERS:
+        await message.answer(
+            f"👋 <b>Xush kelibsiz, {escape(message.from_user.full_name)}!</b>\n"
+            "Kerakli bo'limni pastki menyudan tanlang:",
+            parse_mode="HTML",
+            reply_markup=build_user_reply_keyboard(),
         )
         return
 
@@ -1207,8 +1192,13 @@ async def instagram_subscription_confirmed(call: CallbackQuery):
     message = get_callback_message(call)
     if message:
         await message.edit_text(
-            "✅ Rahmat! Endi Gold Cinema botidan foydalanishingiz mumkin.",
-            reply_markup=build_main_menu_keyboard(),
+            "✅ Rahmat! Endi Gold Cinema botidan foydalanishingiz mumkin. "
+            "Kerakli bo'limni pastki menyudan tanlang.",
+            reply_markup=None,
+        )
+        await message.answer(
+            "🎬 Foydalanuvchi paneli:",
+            reply_markup=build_user_reply_keyboard(),
         )
 
 
@@ -1228,7 +1218,7 @@ async def user_panel_msg(message: Message):
     if message.from_user is None:
         return
     await message.answer(
-        "🎬 <b>Foydalanuvchi paneli</b>\nKerakli bo'limni tanlang:",
+        "🎬 <b>Foydalanuvchi paneli</b>\nKerakli bo'limni pastki menyudan tanlang:",
         parse_mode="HTML",
         reply_markup=build_user_reply_keyboard(),
     )
@@ -1241,7 +1231,7 @@ async def user_panel_callback(call: CallbackQuery):
     if message is None:
         return
     await message.answer(
-        "🎬 <b>Foydalanuvchi paneli</b>\nKerakli bo'limni tanlang:",
+        "🎬 <b>Foydalanuvchi paneli</b>\nKerakli bo'limni pastki menyudan tanlang:",
         parse_mode="HTML",
         reply_markup=build_user_reply_keyboard(),
     )
@@ -1297,6 +1287,18 @@ async def gift_premium_start(call: CallbackQuery, state: FSMContext):
             "🎁 Premium sovg'a qilmoqchi bo'lgan foydalanuvchining Telegram ID sini yuboring.\n"
             "Qabul qiluvchi avval botni ishga tushirgan bo'lishi kerak."
         )
+
+
+@dp.message(F.text == "🎁 Premium sovg'a qilish")
+async def gift_premium_start_msg(message: Message, state: FSMContext):
+    if message.from_user is None:
+        return
+    await state.clear()
+    await state.set_state(GiftPremiumState.recipient_id)
+    await message.answer(
+        "🎁 Premium sovg'a qilmoqchi bo'lgan foydalanuvchining Telegram ID sini yuboring.\n"
+        "Qabul qiluvchi avval botni ishga tushirgan bo'lishi kerak."
+    )
 
 
 @dp.message(GiftPremiumState.recipient_id, F.text)
@@ -3097,9 +3099,14 @@ async def home_callback(call: CallbackQuery):
         return
     await call.answer()
     await message.edit_text(
-        f"👋 Salom, <b>{call.from_user.full_name}</b>!\nGold Cinema botiga xush kelibsiz.",
+        f"👋 Salom, <b>{escape(call.from_user.full_name)}</b>!\n"
+        "Gold Cinema botiga xush kelibsiz. Menyuni pastki paneldan tanlang.",
         parse_mode="HTML",
-        reply_markup=build_main_menu_keyboard(),
+        reply_markup=None,
+    )
+    await message.answer(
+        "🎬 Foydalanuvchi paneli:",
+        reply_markup=build_user_reply_keyboard(),
     )
 
 
