@@ -825,7 +825,6 @@ def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
         keyboard=[
             [KeyboardButton(text="📊 Statistika"), KeyboardButton(text="👥 Foydalanuvchilar")],
             [KeyboardButton(text="🎬 Kino qo'shish"), KeyboardButton(text="🗑 Kino o'chirish")],
-            [KeyboardButton(text="⭐ Premium boshqarish"), KeyboardButton(text="💎 VIP boshqarish")],
             [KeyboardButton(text="💎 Premium berish"), KeyboardButton(text="🚫 Premium olish")],
             [KeyboardButton(text="📥 Kino buyurtmalari"), KeyboardButton(text="💰 To'lovlar")],
             [KeyboardButton(text="🎁 Promo-kodlar"), KeyboardButton(text="👥 Referallar")],
@@ -1259,10 +1258,8 @@ async def admin_panel_callback(call: CallbackQuery):
         "👥 Foydalanuvchilar",
         "🎬 Kino qo'shish",
         "🗑 Kino o'chirish",
-        "⭐ Premium boshqarish",
         "💎 Premium berish",
         "🚫 Premium olish",
-        "💎 VIP boshqarish",
         "📥 Kino buyurtmalari",
         "💰 To'lovlar",
         "🎁 Promo-kodlar",
@@ -1302,10 +1299,6 @@ async def admin_reply_panel_action(message: Message, state: FSMContext):
         await message.answer(
             "🗑 O'chiriladigan kino kodini yuboring:\nBekor qilish uchun /cancel yuboring."
         )
-    elif action == "⭐ Premium boshqarish":
-        await state.update_data(premium_action="toggle")
-        await state.set_state(AdminPremium.user_id)
-        await message.answer("⭐ Premium berish yoki olish uchun foydalanuvchi Telegram ID sini yuboring:")
     elif action in {"💎 Premium berish", "🚫 Premium olish"}:
         premium_action = "grant" if action == "💎 Premium berish" else "revoke"
         await state.update_data(premium_action=premium_action)
@@ -1314,18 +1307,6 @@ async def admin_reply_panel_action(message: Message, state: FSMContext):
         await message.answer(
             f"{action} uchun foydalanuvchining Telegram ID sini yuboring "
             f"(Premium {instruction} foydalanuvchi)."
-        )
-    elif action == "💎 VIP boshqarish":
-        await state.set_state(AdminVip.user_id)
-        active_vips = sum(
-            1 for user_id in LIBRARY_SUBSCRIPTIONS
-            if has_library_access(user_id) and not has_premium_access(user_id)
-        )
-        await message.answer(
-            f"💎 <b>VIP boshqarish</b>\nFaol VIP obunalar: <b>{active_vips}</b>\n\n"
-            "VIP berish yoki muddatini uzaytirish uchun foydalanuvchi ID sini yuboring.\n"
-            "Faol VIP obunasi bor ID yuborilsa, bekor qilinadi. Bekor qilish: /cancel",
-            parse_mode="HTML",
         )
     elif action == "📥 Kino buyurtmalari":
         await message.answer(
@@ -1408,7 +1389,7 @@ async def admin_reply_panel_action(message: Message, state: FSMContext):
             lines.append("Hozircha do'st taklif qilgan foydalanuvchilar yo'q.")
         lines.append(
             "\nPremium berish uchun ID ni oling, so'ng "
-            "⭐ Premium boshqarish tugmasidan foydalaning."
+            "💎 Premium berish tugmasidan foydalaning."
         )
         await message.answer(
             "".join(lines),
@@ -2028,7 +2009,9 @@ async def start_movie_add(message: Message, state: FSMContext) -> None:
     await state.set_state(AddMovie.file_id)
     await message.answer(
         "➕ <b>Yangi kino qo'shish</b>\n\n"
-        "Avval video yoki video-hujjatni shu chatga yuboring.\n"
+        "Qo'shmoqchi bo'lgan kinongizning videosini hozir shu chatga yuboring "
+        "(video yoki fayl ko'rinishida).\n"
+        "Video kelgach, kino nomi va qolgan ma'lumotlarini birma-bir so'rayman.\n"
         "Bekor qilish uchun /cancel yuboring.",
         parse_mode="HTML",
     )
