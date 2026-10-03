@@ -86,6 +86,11 @@ REFERRALS: dict[int, set[int]] = {}     # {referrer_id: {taklif qilinganlar}}
 REFERRED_BY: dict[int, int] = {}        # {user_id: kim taklif qilgani}
 PREMIUM_SUBSCRIPTIONS: dict[int, str] = {}  # {user_id: amal qilish muddati (ISO datetime)}
 PENDING_PREMIUM_PAYMENTS: dict[str, dict] = {}
+LIBRARY_PRICE = "9 900 so'm/oy"
+LIBRARY_SUBSCRIPTIONS: dict[int, str] = {}
+PENDING_LIBRARY_PAYMENTS: dict[str, dict] = {}
+WATCH_LATER: dict[int, set[str]] = {}
+LIBRARY_HISTORY: dict[int, list[dict[str, str]]] = {}
 
 CURRENT_PREMIERE: str | None = None     # Hozirgi premyera kino kodi
 DATA_FILE = os.path.join(BASE_DIR, "gold_cinema_data.json")
@@ -109,6 +114,13 @@ def premium_plans_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text="👑 1 yil — 50 000 so'm", callback_data="premium_plan:year")],
         ]
     )
+
+
+def gift_premium_plans_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"📆 {plan['name']}", callback_data=f"gift_plan:{code}")]
+        for code, plan in PREMIUM_PLANS.items()
+    ])
 
 
 class AddMovie(StatesGroup):
@@ -136,6 +148,10 @@ class AdminPremium(StatesGroup):
     user_id = State()
 
 
+class AdminVip(StatesGroup):
+    user_id = State()
+
+
 class AdminPremiere(StatesGroup):
     code = State()
 
@@ -148,12 +164,24 @@ class MovieRequestState(StatesGroup):
     waiting = State()
 
 
+class MovieSearchState(StatesGroup):
+    waiting = State()
+
+
 class AdminPollState(StatesGroup):
     waiting = State()
 
 
 class PremiumPaymentState(StatesGroup):
     waiting_receipt = State()
+
+
+class LibraryPaymentState(StatesGroup):
+    waiting_receipt = State()
+
+
+class GiftPremiumState(StatesGroup):
+    recipient_id = State()
 
 
 # ======================================================================================
@@ -442,6 +470,33 @@ def has_premium_access(user_id: int | None) -> bool:
         return False
 
 
+def has_library_access(user_id: int | None) -> bool:
+    if user_id is None:
+        return False
+    if has_premium_access(user_id):
+        return True
+    expires_at = LIBRARY_SUBSCRIPTIONS.get(user_id)
+    if not expires_at:
+        return False
+    try:
+        return datetime.fromisoformat(expires_at) > datetime.now()
+    except ValueError:
+        return False
+
+
+def grant_library_subscription(user_id: int) -> datetime:
+    now = datetime.now()
+    current_expiry = LIBRARY_SUBSCRIPTIONS.get(user_id)
+    if current_expiry:
+        try:
+            now = max(now, datetime.fromisoformat(current_expiry))
+        except ValueError:
+            pass
+    expires_at = now + timedelta(days=30)
+    LIBRARY_SUBSCRIPTIONS[user_id] = expires_at.isoformat(timespec="seconds")
+    return expires_at
+
+
 def save_data() -> None:
     """Kinolar, foydalanuvchilar va reytinglarni restartdan keyin ham saqlaydi."""
     movies_data = {}
@@ -456,10 +511,14 @@ def save_data() -> None:
         "premium_users": list(dict.fromkeys(PREMIUM_USERS)),
         "premium_subscriptions": {str(k): v for k, v in PREMIUM_SUBSCRIPTIONS.items()},
         "pending_premium_payments": PENDING_PREMIUM_PAYMENTS,
+        "library_subscriptions": {str(k): v for k, v in LIBRARY_SUBSCRIPTIONS.items()},
+        "pending_library_payments": PENDING_LIBRARY_PAYMENTS,
         "all_users": list(ALL_USERS),
         "instagram_confirmed_users": list(INSTAGRAM_CONFIRMED_USERS),
         "user_info": {str(k): v for k, v in USER_INFO.items()},
         "favorites": {str(k): list(v) for k, v in FAVORITES.items()},
+        "watch_later": {str(k): list(v) for k, v in WATCH_LATER.items()},
+        "library_history": {str(k): v for k, v in LIBRARY_HISTORY.items()},
         "views": {str(k): v for k, v in VIEWS.items()},
         "daily_views": {str(k): v for k, v in DAILY_VIEWS.items()},
         "referrals": {str(k): list(v) for k, v in REFERRALS.items()},
@@ -515,12 +574,27 @@ def load_data() -> None:
             for payment_id, payment in data.get("pending_premium_payments", {}).items()
             if isinstance(payment, dict)
         })
+        LIBRARY_SUBSCRIPTIONS.update({
+            int(user_id): str(expires_at)
+            for user_id, expires_at in data.get("library_subscriptions", {}).items()
+        })
+        PENDING_LIBRARY_PAYMENTS.update({
+            str(payment_id): payment
+            for payment_id, payment in data.get("pending_library_payments", {}).items()
+            if isinstance(payment, dict)
+        })
         ALL_USERS.update(int(user_id) for user_id in data.get("all_users", []))
         INSTAGRAM_CONFIRMED_USERS.update(
             int(user_id) for user_id in data.get("instagram_confirmed_users", [])
         )
         USER_INFO.update({int(k): v for k, v in data.get("user_info", {}).items()})
         FAVORITES.update({int(k): set(v) for k, v in data.get("favorites", {}).items()})
+        WATCH_LATER.update({int(k): set(v) for k, v in data.get("watch_later", {}).items()})
+        LIBRARY_HISTORY.update({
+            int(k): [entry for entry in v if isinstance(entry, dict)]
+            for k, v in data.get("library_history", {}).items()
+            if isinstance(v, list)
+        })
         VIEWS.update({int(k): int(v) for k, v in data.get("views", {}).items()})
         DAILY_VIEWS.update({int(k): v for k, v in data.get("daily_views", {}).items()})
         REFERRALS.update({int(k): set(v) for k, v in data.get("referrals", {}).items()})
@@ -706,7 +780,7 @@ def premium_offer_text(user_id: int | None = None) -> str:
     return (
         "💎 <b>Gold Cinema Premium</b>\n\n"
         "Barcha foydalanuvchilar kinolarni cheklovsiz tomosha qilishi mumkin.\n"
-        "Premium bilan qo'shimcha imkoniyatlarga ega bo'lasiz!"
+        "Premium bilan qo'shimcha imkoniyatlarga ega bo'lasiz, jumladan shaxsiy kino kutubxonasiga!"
         f"{status}\n\n"
         "👇 O'zingizga mos tarifni tanlang:"
     )
@@ -715,8 +789,11 @@ def premium_offer_text(user_id: int | None = None) -> str:
 def build_movie_keyboard(code: str, movie: dict, user_id: int | None = None) -> InlineKeyboardMarkup:
     likes = len(movie["likes"])
     dislikes = len(movie["dislikes"])
-    is_fav = user_id is not None and code in FAVORITES.get(user_id, set())
-    fav_text = "💛 Saqlangan" if is_fav else "⭐ Saqlash"
+    library_access = has_library_access(user_id)
+    is_fav = library_access and code in FAVORITES.get(user_id, set())
+    is_later = library_access and code in WATCH_LATER.get(user_id, set())
+    fav_text = ("💛 Saqlangan" if is_fav else "⭐ Sevimliga") if library_access else "🔒 Sevimlilar"
+    later_text = ("🕒 Keyinroq saqlangan" if is_later else "🕒 Keyinroq") if library_access else "🔒 Keyinroq"
 
     keyboard = [
         [
@@ -725,8 +802,9 @@ def build_movie_keyboard(code: str, movie: dict, user_id: int | None = None) -> 
         ],
         [
             InlineKeyboardButton(text=fav_text, callback_data=f"fav:{code}"),
-            InlineKeyboardButton(text="🔄 Boshqa kino", callback_data="menu_rand"),
+            InlineKeyboardButton(text=later_text, callback_data=f"later:{code}"),
         ],
+        [InlineKeyboardButton(text="🔄 Boshqa kino", callback_data="menu_rand")],
         [InlineKeyboardButton(text="🧭 Bosh menyu", callback_data="menu_home")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
@@ -745,68 +823,62 @@ def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
 
 
 def build_user_reply_keyboard() -> ReplyKeyboardMarkup:
-    """Oddiy foydalanuvchi uchun asosiy reply-klaviatura. Yozuvlar aniq va chiroyli ko'rinadi."""
-    keyboard = []
-    if CURRENT_PREMIERE and CURRENT_PREMIERE in MOVIES_DATABASE:
-        keyboard.append([KeyboardButton(text="🎬 Premyera kino")])
-    keyboard += [
-        [KeyboardButton(text="🎲 Tasodifiy kino"), KeyboardButton(text="📅 Kunning kinosi")],
-        [KeyboardButton(text="🔥 TOP kinolar"), KeyboardButton(text="⭐ Sevimlilarim")],
-        [KeyboardButton(text="📚 Kino ro'yxati")],
-        [KeyboardButton(text="🤝 Do'stlarni taklif qilish")],
-        [KeyboardButton(text="💎 Premium"), KeyboardButton(text="📝 Kino so'rash")],
-    ]
+    """Foydalanuvchi uchun so'ralgan 2 ustunli boshqaruv paneli."""
     return ReplyKeyboardMarkup(
-        keyboard=keyboard,
+        keyboard=[
+            [KeyboardButton(text="🔎 Kino qidirish"), KeyboardButton(text="🔥 Yangi kinolar")],
+            [KeyboardButton(text="⭐ Premium"), KeyboardButton(text="🎁 Premium sovg'a qilish")],
+            [KeyboardButton(text="📥 Kino buyurtma qilish"), KeyboardButton(text="❤️ Sevimlilar")],
+            [KeyboardButton(text="📜 Kino tarixi"), KeyboardButton(text="👤 Mening profilim")],
+            [KeyboardButton(text="💎 VIP"), KeyboardButton(text="👥 Referal")],
+            [KeyboardButton(text="📞 Yordam")],
+        ],
         resize_keyboard=True,
     )
 
 
 def build_main_menu_keyboard() -> InlineKeyboardMarkup:
-    """Oddiy foydalanuvchi uchun bosh menyudagi foydali inline tugmalar. Yozuvlar toza va chiroyli."""
-    keyboard = []
-
-    if CURRENT_PREMIERE and CURRENT_PREMIERE in MOVIES_DATABASE:
-        keyboard.append([InlineKeyboardButton(text="🎬 Premyera kino", callback_data="menu_premiere")])
-
-    keyboard += [
+    """Foydalanuvchi panelidagi amallar uchun inline menyu."""
+    keyboard = [
         [
-            InlineKeyboardButton(text="🎲 Tasodifiy kino", callback_data="menu_rand"),
-            InlineKeyboardButton(text="📅 Kunning kinosi", callback_data="menu_daily"),
+            InlineKeyboardButton(text="🔎 Kino qidirish", callback_data="menu_search"),
+            InlineKeyboardButton(text="🔥 Yangi kinolar", callback_data="menu_new"),
         ],
         [
-            InlineKeyboardButton(text="🔥 TOP kinolar", callback_data="menu_top"),
-            InlineKeyboardButton(text="⭐ Sevimlilarim", callback_data="menu_favorites"),
+            InlineKeyboardButton(text="⭐ Premium", callback_data="premium_info"),
+            InlineKeyboardButton(text="🎁 Premium sovg'a qilish", callback_data="gift_premium"),
         ],
         [
-            InlineKeyboardButton(text="📚 Kino ro'yxati", callback_data="menu_movies"),
-            InlineKeyboardButton(text="💎 Premium", callback_data="premium_info"),
+            InlineKeyboardButton(text="📥 Kino buyurtma qilish", callback_data="menu_request"),
+            InlineKeyboardButton(text="❤️ Sevimlilar", callback_data="library_view:favorites"),
         ],
-        [InlineKeyboardButton(text="🤝 Do'stlarni taklif qilish", callback_data="menu_referral")],
-        [InlineKeyboardButton(text="📝 Kino so'rash", callback_data="menu_request")],
+        [
+            InlineKeyboardButton(text="📜 Kino tarixi", callback_data="library_view:history"),
+            InlineKeyboardButton(text="👤 Mening profilim", callback_data="menu_stats"),
+        ],
+        [
+            InlineKeyboardButton(text="💎 VIP", callback_data="menu_library"),
+            InlineKeyboardButton(text="👥 Referal", callback_data="menu_referral"),
+        ],
+        [InlineKeyboardButton(text="📞 Yordam", callback_data="menu_help")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
 def build_admin_panel_keyboard() -> InlineKeyboardMarkup:
     keyboard = [
-        [
-            InlineKeyboardButton(text="➕ Kino qo'shish", callback_data="admin_add"),
-            InlineKeyboardButton(text="✏️ Tahrirlash", callback_data="admin_edit"),
-        ],
-        [
-            InlineKeyboardButton(text="🗑 Kino o'chirish", callback_data="admin_delete"),
-            InlineKeyboardButton(text="📚 Kino ro'yxati", callback_data="admin_movies"),
-        ],
-        [
-            InlineKeyboardButton(text="🎬 Premyera", callback_data="admin_premiere"),
-        ],
-        [
-            InlineKeyboardButton(text="👑 Premium berish/olish", callback_data="admin_premium_manage"),
-        ],
-        [
-            InlineKeyboardButton(text="📢 Xabar yuborish (Broadcast)", callback_data="admin_broadcast"),
-        ],
+        [InlineKeyboardButton(text="📊 Statistika", callback_data="admin_stats"),
+         InlineKeyboardButton(text="👥 Foydalanuvchilar", callback_data="admin_users")],
+        [InlineKeyboardButton(text="🎬 Kino qo'shish", callback_data="admin_add"),
+         InlineKeyboardButton(text="🗑 Kino o'chirish", callback_data="admin_delete")],
+        [InlineKeyboardButton(text="⭐ Premium boshqarish", callback_data="admin_premium_manage"),
+         InlineKeyboardButton(text="💎 VIP boshqarish", callback_data="admin_vip_manage")],
+        [InlineKeyboardButton(text="📥 Kino buyurtmalari", callback_data="admin_requests"),
+         InlineKeyboardButton(text="💰 To'lovlar", callback_data="admin_payments")],
+        [InlineKeyboardButton(text="🎁 Promo-kodlar", callback_data="admin_promos"),
+         InlineKeyboardButton(text="👥 Referallar", callback_data="admin_referrals")],
+        [InlineKeyboardButton(text="📢 Reklama yuborish", callback_data="admin_broadcast"),
+         InlineKeyboardButton(text="⚙️ Sozlamalar", callback_data="admin_settings")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
@@ -845,6 +917,212 @@ def build_results_text(title: str, matches: dict) -> str:
         text += line
     text += "\n👇 <i>Kino ko'rish uchun uning kodini chatga yuboring!</i>"
     return text
+
+
+def library_offer_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"💳 Kutubxonani ulash — {LIBRARY_PRICE}", callback_data="library_subscribe")],
+        [InlineKeyboardButton(text="💎 Premium tariflari", callback_data="premium_info")],
+    ])
+
+
+def library_menu_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="⭐ Sevimli filmlar", callback_data="library_view:favorites"),
+            InlineKeyboardButton(text="🕒 Keyinroq", callback_data="library_view:later"),
+        ],
+        [
+            InlineKeyboardButton(text="✅ Ko'rish tarixi", callback_data="library_view:history"),
+            InlineKeyboardButton(text="🎯 Tavsiyalar", callback_data="library_view:recommendations"),
+        ],
+        [InlineKeyboardButton(text="🧭 Bosh menyu", callback_data="menu_home")],
+    ])
+
+
+def library_later_keyboard(codes: list[str]) -> InlineKeyboardMarkup:
+    buttons = [
+        [InlineKeyboardButton(
+            text=f"🗑 Olib tashlash: {MOVIES_DATABASE[code]['name'][:35]}",
+            callback_data=f"library_remove_later:{code}",
+        )]
+        for code in codes
+        if code in MOVIES_DATABASE
+    ]
+    buttons.append([InlineKeyboardButton(text="◀️ Kutubxona", callback_data="menu_library")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+def get_personal_recommendations(user_id: int) -> dict:
+    preferences: dict[str, int] = {}
+    seed_codes = set(FAVORITES.get(user_id, set()))
+    seed_codes.update(
+        str(entry.get("code"))
+        for entry in LIBRARY_HISTORY.get(user_id, [])
+        if entry.get("code")
+    )
+    seed_codes.update(
+        code for code, movie in MOVIES_DATABASE.items()
+        if user_id in movie.get("likes", set())
+    )
+    for code in seed_codes:
+        movie = MOVIES_DATABASE.get(code)
+        if not movie:
+            continue
+        weight = 2 if code in FAVORITES.get(user_id, set()) else 1
+        if user_id in movie.get("likes", set()):
+            weight += 1
+        for genre in re.split(r"[,/|]+", str(movie.get("janr", ""))):
+            genre = genre.strip().casefold()
+            if genre:
+                preferences[genre] = preferences.get(genre, 0) + weight
+
+    excluded = set(FAVORITES.get(user_id, set())) | WATCH_LATER.get(user_id, set())
+    excluded.update(
+        str(entry.get("code"))
+        for entry in LIBRARY_HISTORY.get(user_id, [])
+        if entry.get("code")
+    )
+    candidates = [
+        (code, movie)
+        for code, movie in MOVIES_DATABASE.items()
+        if code not in excluded
+    ]
+
+    def score(item: tuple[str, dict]) -> tuple[int, int, tuple[int, int | str]]:
+        code, movie = item
+        genre_score = sum(
+            preferences.get(genre.strip().casefold(), 0)
+            for genre in re.split(r"[,/|]+", str(movie.get("janr", "")))
+            if genre.strip()
+        )
+        popularity = len(movie.get("likes", set())) - len(movie.get("dislikes", set()))
+        return -genre_score, -popularity, movie_code_sort_key(code)
+
+    if not candidates:
+        candidates = list(MOVIES_DATABASE.items())
+    candidates.sort(key=score)
+    return dict(candidates[:10])
+
+
+async def send_library_offer(message: Message) -> None:
+    await message.answer(
+        "📚 <b>Shaxsiy kino kutubxonasi</b>\n\n"
+        "⭐ Sevimli filmlar\n"
+        "🕒 Keyinroq ko'rish ro'yxati\n"
+        "✅ Ko'rish tarixi\n"
+        "🎯 Sizga mos shaxsiy tavsiyalar\n\n"
+        "Ko'rish tarixi obuna faol bo'lgan vaqtdagi kinolarni saqlaydi.\n"
+        f"Obuna narxi: <b>{LIBRARY_PRICE}</b> (30 kun).\n"
+        "💎 Premium foydalanuvchilar kutubxonadan qo'shimcha to'lovsiz foydalanadi.\n\n"
+        "Ulash uchun tugmani bosing va to'lov chekini yuboring.",
+        parse_mode="HTML",
+        reply_markup=library_offer_keyboard(),
+    )
+
+
+async def send_library_home(message: Message, user_id: int) -> None:
+    if not has_library_access(user_id):
+        await send_library_offer(message)
+        return
+    expires_at = LIBRARY_SUBSCRIPTIONS.get(user_id)
+    expiry_text = ""
+    if expires_at and not has_premium_access(user_id):
+        try:
+            expiry_text = (
+                "\nObuna tugash vaqti: "
+                f"<b>{datetime.fromisoformat(expires_at).strftime('%d.%m.%Y %H:%M')}</b>"
+            )
+        except ValueError:
+            expiry_text = ""
+    await message.answer(
+        "📚 <b>Shaxsiy kino kutubxonangiz</b>\n"
+        "Kerakli bo'limni tanlang."
+        f"{expiry_text}",
+        parse_mode="HTML",
+        reply_markup=library_menu_keyboard(),
+    )
+
+
+async def send_library_section(message: Message, user_id: int, section: str) -> None:
+    if not has_library_access(user_id):
+        await send_library_offer(message)
+        return
+
+    if section == "favorites":
+        codes = sorted(
+            (code for code in FAVORITES.get(user_id, set()) if code in MOVIES_DATABASE),
+            key=movie_code_sort_key,
+        )
+        matches = {code: MOVIES_DATABASE[code] for code in codes}
+        text = (
+            build_results_text("⭐ <b>Sevimli filmlaringiz:</b>", matches)
+            if matches else "⭐ Sevimlilar ro'yxatingiz hali bo'sh."
+        )
+        await message.answer(text, parse_mode="HTML")
+        return
+
+    if section == "later":
+        codes = sorted(
+            (code for code in WATCH_LATER.get(user_id, set()) if code in MOVIES_DATABASE),
+            key=movie_code_sort_key,
+        )
+        matches = {code: MOVIES_DATABASE[code] for code in codes}
+        if not codes:
+            await message.answer("🕒 Keyinroq ko'rish ro'yxatingiz bo'sh.")
+            return
+        await message.answer(
+            build_results_text("🕒 <b>Keyinroq ko'rish ro'yxati:</b>", matches),
+            parse_mode="HTML",
+            reply_markup=library_later_keyboard(codes[:20]),
+        )
+        return
+
+    if section == "history":
+        entries = [
+            entry for entry in reversed(LIBRARY_HISTORY.get(user_id, []))
+            if str(entry.get("code", "")) in MOVIES_DATABASE
+        ][:20]
+        if not entries:
+            await message.answer("✅ Hali ko'rish tarixingiz yo'q. Kino ko'rsangiz, bu yerda saqlanadi.")
+            return
+        lines = ["✅ <b>Oxirgi ko'rilgan kinolar:</b>\n"]
+        for index, entry in enumerate(entries, 1):
+            code = str(entry["code"])
+            movie = MOVIES_DATABASE[code]
+            watched_at = str(entry.get("watched_at", ""))
+            try:
+                watched_label = datetime.fromisoformat(watched_at).strftime("%d.%m.%Y %H:%M")
+            except ValueError:
+                watched_label = "sana noma'lum"
+            lines.append(
+                f"{index}. <b>{escape(str(movie.get('name', 'Nomsiz')))}</b> — "
+                f"{watched_label} | kodi: <code>{escape(code)}</code>"
+            )
+        await message.answer("\n".join(lines), parse_mode="HTML")
+        return
+
+    if section == "recommendations":
+        matches = get_personal_recommendations(user_id)
+        if not matches:
+            await message.answer("🎯 Hozircha tavsiya uchun kinolar topilmadi.")
+            return
+        lines = ["🎯 <b>Sizga mos tavsiyalar:</b>\n"]
+        for index, (code, movie) in enumerate(matches.items(), 1):
+            year = escape(str(movie.get("yil", "Noma'lum")))
+            lines.append(
+                f"{index}. <b>{escape(str(movie.get('name', 'Nomsiz')))}</b> — "
+                f"{year} | "
+                f"kodi: <code>{escape(str(code))}</code>"
+            )
+        lines.append("\n👇 <i>Kino ko'rish uchun uning kodini chatga yuboring!</i>")
+        await message.answer(
+            "\n".join(lines),
+            parse_mode="HTML",
+        )
+        return
+
+    await message.answer("⚠️ Kutubxona bo'limi topilmadi.")
 
 
 async def broadcast_text(text: str, reply_markup: InlineKeyboardMarkup | None = None) -> tuple[int, int]:
@@ -939,7 +1217,7 @@ async def admin_panel_msg(message: Message):
     if message.from_user is None or message.from_user.id != ADMIN_ID:
         return
     await message.answer(
-        "🛠 <b>Admin boshqaruv paneli</b>\nKerakli amalni tanlang:",
+        "👑 <b>ADMIN PANEL</b>\nKerakli amalni tanlang:",
         parse_mode="HTML",
         reply_markup=build_admin_panel_keyboard(),
     )
@@ -978,7 +1256,7 @@ async def admin_panel_callback(call: CallbackQuery):
     message = get_callback_message(call)
     if message:
         await message.edit_text(
-            "🛠 <b>Admin boshqaruv paneli</b>\nKerakli amalni tanlang:",
+            "👑 <b>ADMIN PANEL</b>\nKerakli amalni tanlang:",
             parse_mode="HTML",
             reply_markup=build_admin_panel_keyboard(),
         )
@@ -996,7 +1274,7 @@ async def premium_info(call: CallbackQuery):
         )
 
 
-@dp.message(F.text == "💎 Premium")
+@dp.message(F.text.in_({"💎 Premium", "⭐ Premium"}))
 async def premium_info_msg(message: Message):
     if message.from_user is None:
         return
@@ -1006,6 +1284,78 @@ async def premium_info_msg(message: Message):
         parse_mode="HTML",
         reply_markup=premium_plans_keyboard(),
     )
+
+
+@dp.callback_query(F.data == "gift_premium")
+async def gift_premium_start(call: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await state.set_state(GiftPremiumState.recipient_id)
+    await call.answer()
+    message = get_callback_message(call)
+    if message:
+        await message.answer(
+            "🎁 Premium sovg'a qilmoqchi bo'lgan foydalanuvchining Telegram ID sini yuboring.\n"
+            "Qabul qiluvchi avval botni ishga tushirgan bo'lishi kerak."
+        )
+
+
+@dp.message(GiftPremiumState.recipient_id, F.text)
+async def gift_premium_recipient(message: Message, state: FSMContext):
+    if message.from_user is None or message.text is None:
+        return
+    raw_id = message.text.strip()
+    if not raw_id.isdigit() or int(raw_id) <= 0:
+        await message.answer("⚠️ Telegram ID faqat musbat raqamlardan iborat bo'lishi kerak.")
+        return
+    recipient_id = int(raw_id)
+    if recipient_id == message.from_user.id:
+        await message.answer("🎁 O'zingizga sovg'a yuborib bo'lmaydi. Boshqa foydalanuvchi ID sini kiriting.")
+        return
+    if recipient_id not in ALL_USERS:
+        await message.answer("⚠️ Bu foydalanuvchi botni hali ishga tushirmagan. Avval botga /start yuborishi kerak.")
+        return
+    await state.update_data(gift_recipient_id=recipient_id)
+    await message.answer(
+        "🎁 <b>Premium sovg'a tarifi:</b>\nKerakli muddatni tanlang:",
+        parse_mode="HTML",
+        reply_markup=gift_premium_plans_keyboard(),
+    )
+
+
+@dp.callback_query(F.data.startswith("gift_plan:"))
+async def gift_premium_plan_selected(call: CallbackQuery, state: FSMContext):
+    if not call.data:
+        await call.answer("❌ Tarif topilmadi.", show_alert=True)
+        return
+    plan_code = call.data.split(":", 1)[1]
+    plan = PREMIUM_PLANS.get(plan_code)
+    data = await state.get_data()
+    recipient_id = data.get("gift_recipient_id")
+    if plan is None or not isinstance(recipient_id, int) or recipient_id not in ALL_USERS:
+        await call.answer("⚠️ Sovg'a ma'lumoti topilmadi. Jarayonni boshidan boshlang.", show_alert=True)
+        await state.clear()
+        return
+    if not CARD_NUMBER or ADMIN_ID == 0:
+        await call.answer("⚠️ To'lov ma'lumotlari sozlanmagan.", show_alert=True)
+        return
+    await state.set_state(PremiumPaymentState.waiting_receipt)
+    await state.update_data(
+        plan=plan["name"],
+        plan_code=plan_code,
+        gift_recipient_id=recipient_id,
+    )
+    await call.answer("✅ Tarif tanlandi!")
+    message = get_callback_message(call)
+    if message:
+        card_name = CARD_NAME or "Ko'rsatilmagan"
+        await message.answer(
+            f"🎁 <b>Tanlangan sovg'a tarifi:</b> {escape(plan['name'])}\n\n"
+            f"💳 <b>Karta raqami:</b> <code>{escape(CARD_NUMBER)}</code>\n"
+            f"👤 <b>Karta egasi:</b> {escape(card_name)}\n\n"
+            "To'lovdan so'ng chek rasmini yoki faylini yuboring. "
+            "Admin tasdiqlagach, Premium qabul qiluvchiga beriladi.",
+            parse_mode="HTML",
+        )
 
 
 @dp.callback_query(F.data.startswith("premium_plan:"))
@@ -1062,6 +1412,7 @@ async def premium_receipt_received(message: Message, state: FSMContext):
         "user_id": user.id,
         "plan_code": plan_code,
         "plan": str(plan_name),
+        "gift_recipient_id": data.get("gift_recipient_id"),
     }
     save_data()
     review_keyboard = InlineKeyboardMarkup(inline_keyboard=[[
@@ -1074,6 +1425,11 @@ async def premium_receipt_received(message: Message, state: FSMContext):
         f"👤 Foydalanuvchi: <b>{escape(user.full_name)}</b>\n"
         f"🔗 Username: {escape(username)}\n"
         f"🆔 ID: <code>{user.id}</code>"
+        + (
+            f"\n🎁 Qabul qiluvchi ID: <code>{int(data['gift_recipient_id'])}</code>"
+            if data.get("gift_recipient_id") is not None
+            else ""
+        )
     )
     try:
         if message.photo:
@@ -1101,7 +1457,8 @@ async def premium_receipt_received(message: Message, state: FSMContext):
         return
     await state.clear()
     await message.answer(
-        "✅ Chekingiz adminga yuborildi. To'lov tasdiqlangach Premium yoqiladi.",
+        "✅ Chekingiz adminga yuborildi. "
+        "To'lov tasdiqlangach Premium faollashadi yoki sovg'a qabul qiluvchiga beriladi.",
         reply_markup=build_user_reply_keyboard(),
     )
 
@@ -1118,6 +1475,7 @@ async def approve_premium_payment(call: CallbackQuery):
         return
     try:
         user_id = int(payment["user_id"])
+        recipient_id = int(payment.get("gift_recipient_id") or user_id)
         plan_code = str(payment["plan_code"])
         if plan_code not in PREMIUM_PLANS:
             raise ValueError("Noma'lum Premium tarifi")
@@ -1126,18 +1484,35 @@ async def approve_premium_payment(call: CallbackQuery):
         await call.answer("Chek ma'lumotlari noto'g'ri.", show_alert=True)
         return
 
-    expires_at = grant_premium_subscription(user_id, plan_code)
+    expires_at = grant_premium_subscription(recipient_id, plan_code)
     save_data()
+    activation_text = (
+        "🎁 Sizga Premium sovg'a qilindi! Gold Cinema Premium faollashtirildi.\n"
+        if recipient_id != user_id
+        else "✅ To'lovingiz tasdiqlandi! Gold Cinema Premium faollashtirildi.\n"
+    )
+    activation_text += (
+        f"📦 Tarif: {escape(str(payment.get('plan', PREMIUM_PLANS[plan_code]['name'])))}\n"
+        f"⏳ Amal qilish muddati: <b>{expires_at.strftime('%d.%m.%Y %H:%M')}</b>"
+    )
     try:
         await bot.send_message(
-            user_id,
-            "✅ To'lovingiz tasdiqlandi! Gold Cinema Premium faollashtirildi.\n"
-            f"📦 Tarif: {escape(str(payment.get('plan', PREMIUM_PLANS[plan_code]['name'])))}\n"
-            f"⏳ Amal qilish muddati: <b>{expires_at.strftime('%d.%m.%Y %H:%M')}</b>",
+            recipient_id,
+            activation_text,
             parse_mode="HTML",
         )
-    except (TelegramBadRequest, TelegramForbiddenError):
-        pass
+    except (TelegramBadRequest, TelegramForbiddenError) as error:
+        print(f"Premium oluvchiga faollashgani haqida xabar yuborishda xatolik: {error}")
+    if recipient_id != user_id:
+        try:
+            await bot.send_message(
+                user_id,
+                f"🎁 Sovg'angiz qabul qiluvchiga yuborildi. Premium muddati: "
+                f"<b>{expires_at.strftime('%d.%m.%Y %H:%M')}</b>.",
+                parse_mode="HTML",
+            )
+        except (TelegramBadRequest, TelegramForbiddenError) as error:
+            print(f"Premium sovg'asi haqida to'lovchiga xabar yuborishda xatolik: {error}")
     message = get_callback_message(call)
     if message:
         await message.edit_reply_markup(reply_markup=None)
@@ -1156,12 +1531,18 @@ async def reject_premium_payment(call: CallbackQuery):
         return
     save_data()
     try:
+        user_id = int(payment["user_id"])
+        gift_recipient_id = payment.get("gift_recipient_id")
         await bot.send_message(
-            int(payment["user_id"]),
-            "⚠️ Premium to'lov chekingiz tasdiqlanmadi. Batafsil ma'lumot uchun admin bilan bog'laning.",
+            user_id,
+            (
+                "⚠️ Premium sovg'a to'lov chekingiz tasdiqlanmadi. Admin bilan bog'laning."
+                if gift_recipient_id is not None
+                else "⚠️ Premium to'lov chekingiz tasdiqlanmadi. Batafsil ma'lumot uchun admin bilan bog'laning."
+            ),
         )
-    except (KeyError, TypeError, ValueError, TelegramBadRequest, TelegramForbiddenError):
-        pass
+    except (KeyError, TypeError, ValueError, TelegramBadRequest, TelegramForbiddenError) as error:
+        print(f"Premium chek rad etilgani haqida xabar yuborilmadi: {error}")
     message = get_callback_message(call)
     if message:
         await message.edit_reply_markup(reply_markup=None)
@@ -1171,6 +1552,150 @@ async def reject_premium_payment(call: CallbackQuery):
 @dp.message(PremiumPaymentState.waiting_receipt, F.text)
 async def premium_receipt_text_received(message: Message):
     await message.answer("📎 Iltimos, to'lov chekini rasm yoki fayl ko'rinishida yuboring.")
+
+
+@dp.callback_query(F.data == "library_subscribe")
+async def start_library_subscription(call: CallbackQuery, state: FSMContext):
+    if has_library_access(call.from_user.id):
+        await call.answer("✅ Kutubxonadan foydalanish huquqingiz bor.")
+        return
+    if not CARD_NUMBER or ADMIN_ID == 0:
+        await call.answer("⚠️ To'lov ma'lumotlari sozlanmagan.", show_alert=True)
+        return
+    await state.clear()
+    await state.set_state(LibraryPaymentState.waiting_receipt)
+    await call.answer("💳 To'lov ma'lumotlari yuborildi.")
+    message = get_callback_message(call)
+    if message:
+        card_name = CARD_NAME or "Ko'rsatilmagan"
+        await message.answer(
+            "📚 <b>Shaxsiy kino kutubxonasi — 30 kun</b>\n\n"
+            f"💰 To'lov: <b>{LIBRARY_PRICE}</b>\n"
+            f"💳 Karta: <code>{escape(CARD_NUMBER)}</code>\n"
+            f"👤 Karta egasi: {escape(card_name)}\n\n"
+            "To'lovdan so'ng chek rasmini yoki faylini shu chatga yuboring. "
+            f"Chek admin @{escape(ADMIN_USERNAME or 'admin')} ga tasdiqlash uchun yuboriladi.",
+            parse_mode="HTML",
+        )
+
+
+@dp.message(LibraryPaymentState.waiting_receipt, F.photo)
+@dp.message(LibraryPaymentState.waiting_receipt, F.document)
+async def library_receipt_received(message: Message, state: FSMContext):
+    if message.from_user is None or ADMIN_ID == 0:
+        return
+    if message.from_user.id == ADMIN_ID:
+        await state.clear()
+        await message.answer("✅ Siz adminsiz. Kutubxona to'lov cheki kerak emas.")
+        return
+    user = message.from_user
+    payment_id = uuid4().hex[:12]
+    PENDING_LIBRARY_PAYMENTS[payment_id] = {"user_id": user.id}
+    save_data()
+    review_keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="✅ Tasdiqlash", callback_data=f"libraryapprove:{payment_id}"),
+        InlineKeyboardButton(text="❌ Rad etish", callback_data=f"libraryreject:{payment_id}"),
+    ]])
+    admin_caption = (
+        "📚 <b>Shaxsiy kutubxona obunasi</b>\n\n"
+        f"💰 To'lov: <b>{LIBRARY_PRICE}</b>\n"
+        f"👤 Foydalanuvchi: <b>{escape(user.full_name)}</b>\n"
+        f"🔗 Username: @{escape(user.username or '—')}\n"
+        f"🆔 ID: <code>{user.id}</code>"
+    )
+    try:
+        if message.photo:
+            await bot.send_photo(
+                ADMIN_ID,
+                photo=message.photo[-1].file_id,
+                caption=admin_caption,
+                parse_mode="HTML",
+                reply_markup=review_keyboard,
+            )
+        elif message.document:
+            await bot.send_document(
+                ADMIN_ID,
+                document=message.document.file_id,
+                caption=admin_caption,
+                parse_mode="HTML",
+                reply_markup=review_keyboard,
+            )
+        else:
+            PENDING_LIBRARY_PAYMENTS.pop(payment_id, None)
+            save_data()
+            await message.answer("⚠️ Chekni rasm yoki fayl ko'rinishida yuboring.")
+            return
+    except (TelegramBadRequest, TelegramForbiddenError) as error:
+        PENDING_LIBRARY_PAYMENTS.pop(payment_id, None)
+        save_data()
+        print(f"Kutubxona to'lov chekini adminga yuborishda xatolik: {error}")
+        await message.answer("⚠️ Chekni adminga yuborib bo'lmadi. Keyinroq qayta urinib ko'ring.")
+        return
+    await state.clear()
+    await message.answer("✅ Chekingiz adminga yuborildi. Kutubxona obunasi tasdiqlangach faollashadi.")
+
+
+@dp.message(LibraryPaymentState.waiting_receipt, F.text)
+async def library_receipt_text_received(message: Message):
+    await message.answer("📎 Iltimos, to'lov chekini rasm yoki fayl ko'rinishida yuboring.")
+
+
+@dp.callback_query(F.data.startswith("libraryapprove:"))
+async def approve_library_payment(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID or not call.data:
+        await call.answer("❌ Ruxsat yo'q.", show_alert=True)
+        return
+    payment_id = call.data.split(":", 1)[1]
+    payment = PENDING_LIBRARY_PAYMENTS.pop(payment_id, None)
+    if not payment:
+        await call.answer("Chek topilmadi yoki allaqachon ko'rib chiqilgan.", show_alert=True)
+        return
+    try:
+        user_id = int(payment["user_id"])
+    except (KeyError, TypeError, ValueError):
+        save_data()
+        await call.answer("Chek ma'lumotlari noto'g'ri.", show_alert=True)
+        return
+    expires_at = grant_library_subscription(user_id)
+    save_data()
+    try:
+        await bot.send_message(
+            user_id,
+            "✅ To'lov tasdiqlandi! Shaxsiy kino kutubxonangiz 30 kunga faollashtirildi.\n"
+            f"⏳ Amal qilish muddati: <b>{expires_at.strftime('%d.%m.%Y %H:%M')}</b>",
+            parse_mode="HTML",
+            reply_markup=library_menu_keyboard(),
+        )
+    except (TelegramBadRequest, TelegramForbiddenError) as error:
+        print(f"Kutubxona obunasi faollashganini foydalanuvchiga bildirishda xatolik: {error}")
+    message = get_callback_message(call)
+    if message:
+        await message.edit_reply_markup(reply_markup=None)
+    await call.answer("✅ Kutubxona obunasi faollashtirildi.")
+
+
+@dp.callback_query(F.data.startswith("libraryreject:"))
+async def reject_library_payment(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID or not call.data:
+        await call.answer("❌ Ruxsat yo'q.", show_alert=True)
+        return
+    payment_id = call.data.split(":", 1)[1]
+    payment = PENDING_LIBRARY_PAYMENTS.pop(payment_id, None)
+    if not payment:
+        await call.answer("Chek topilmadi yoki allaqachon ko'rib chiqilgan.", show_alert=True)
+        return
+    save_data()
+    try:
+        await bot.send_message(
+            int(payment["user_id"]),
+            "⚠️ Kutubxona obunasi uchun yuborgan chekingiz tasdiqlanmadi. Admin bilan bog'laning.",
+        )
+    except (KeyError, TypeError, ValueError, TelegramBadRequest, TelegramForbiddenError) as error:
+        print(f"To'lov rad etilgani haqida xabar yuborilmadi: {error}")
+    message = get_callback_message(call)
+    if message:
+        await message.edit_reply_markup(reply_markup=None)
+    await call.answer("Chek rad etildi.")
 
 
 @dp.message(F.contact)
@@ -1208,6 +1733,7 @@ async def admin_users_msg(message: Message):
             f"├ ID: <code>{user_id}</code>\n"
             f"├ Username: {escape(str(info.get('username', 'Mavjud emas')))}\n"
             f"├ Telefon: {escape(str(phone))}\n"
+            f"├ Taklif qilganlar: {len(REFERRALS.get(user_id, set()))} ta\n"
             f"└ Qo'shilgan: {escape(str(joined))}\n\n"
         )
     await message.answer(text[:4000], parse_mode="HTML", reply_markup=build_admin_reply_keyboard())
@@ -1527,6 +2053,7 @@ async def show_users_list(call: CallbackQuery):
             f"├ Username: {username}\n"
             f"├ Telefon: {phone}\n"
             f"├ Obuna: {is_premium}\n"
+            f"├ Taklif qilganlar: <b>{len(REFERRALS.get(user_id, set()))}</b> ta\n"
             f"└ Qo'shilgan: {joined}\n\n"
         )
 
@@ -1555,6 +2082,7 @@ async def show_bot_stats(call: CallbackQuery):
         "📊 <b>Bot statistikasi:</b>\n\n"
         f"👥 Foydalanuvchilar: <b>{len(ALL_USERS)}</b>\n"
         f"💎 Premium foydalanuvchilar: <b>{len(active_premium_user_ids())}</b>\n"
+        f"🤝 Jami referal takliflar: <b>{sum(len(users) for users in REFERRALS.values())}</b>\n"
         f"🎬 Kinolar bazasi: <b>{len(MOVIES_DATABASE)}</b> ta\n"
         f"👁 Jami ko'rishlar: <b>{total_views}</b>\n"
         f"👍 Jami like'lar: <b>{total_likes}</b>\n"
@@ -1568,6 +2096,190 @@ async def show_bot_stats(call: CallbackQuery):
         await call.answer("⚠️ Bu xabarni o'zgartirib bo'lmaydi.", show_alert=True)
         return
     await message.edit_text(text, parse_mode="HTML", reply_markup=back_kb)
+
+
+@dp.callback_query(F.data == "admin_referrals")
+async def show_referral_report(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID:
+        await call.answer("❌ Siz admin emassiz!", show_alert=True)
+        return
+    message = get_callback_message(call)
+    if message is None:
+        await call.answer("⚠️ Bu xabarni o'zgartirib bo'lmaydi.", show_alert=True)
+        return
+
+    ranked_users = sorted(
+        ALL_USERS,
+        key=lambda user_id: (-len(REFERRALS.get(user_id, set())), user_id),
+    )
+    total_referrals = sum(len(REFERRALS.get(user_id, set())) for user_id in ALL_USERS)
+    lines = [
+        "👥 <b>Referallar hisoboti</b>\n",
+        f"Jami taklif orqali kelganlar: <b>{total_referrals}</b>\n",
+    ]
+    for index, user_id in enumerate(ranked_users, 1):
+        info = USER_INFO.get(user_id, {})
+        name = escape(str(info.get("name", "Noma'lum")))
+        username = escape(str(info.get("username", "Mavjud emas")))
+        count = len(REFERRALS.get(user_id, set()))
+        line = f"{index}. <b>{name}</b> — {count} ta | <code>{user_id}</code> ({username})\n"
+        if sum(map(len, lines)) + len(line) > 3700:
+            lines.append(f"\n⚠️ Ro'yxat uzun, jami foydalanuvchilar: {len(ranked_users)} ta.")
+            break
+        lines.append(line)
+
+    await call.answer()
+    await message.edit_text(
+        "".join(lines),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="◀️ Admin panelga qaytish", callback_data="admin_panel_back")]
+        ]),
+    )
+
+
+@dp.callback_query(F.data == "admin_vip_manage")
+async def admin_vip_manage_start(call: CallbackQuery, state: FSMContext):
+    if call.from_user.id != ADMIN_ID:
+        await call.answer("❌ Siz admin emassiz!", show_alert=True)
+        return
+    await state.clear()
+    await state.set_state(AdminVip.user_id)
+    await call.answer()
+    message = get_callback_message(call)
+    if message:
+        active_vips = sum(
+            1 for user_id in LIBRARY_SUBSCRIPTIONS
+            if has_library_access(user_id) and not has_premium_access(user_id)
+        )
+        await message.answer(
+            f"💎 <b>VIP boshqarish</b>\nFaol VIP obunalar: <b>{active_vips}</b>\n\n"
+            "VIP berish yoki muddatini uzaytirish uchun foydalanuvchi ID sini yuboring.\n"
+            "Faol VIP obunasi bor ID yuborilsa, obuna bekor qilinadi. Bekor qilish: /cancel",
+            parse_mode="HTML",
+        )
+
+
+@dp.message(AdminVip.user_id, F.text)
+async def admin_vip_manage_finish(message: Message, state: FSMContext):
+    if message.from_user is None or message.from_user.id != ADMIN_ID or message.text is None:
+        return
+    raw_user_id = message.text.strip()
+    if not raw_user_id.isdigit() or int(raw_user_id) <= 0:
+        await message.answer("⚠️ Foydalanuvchi ID sini musbat raqam sifatida yuboring.")
+        return
+    user_id = int(raw_user_id)
+    if has_premium_access(user_id):
+        await message.answer("ℹ️ Bu foydalanuvchi Premium orqali VIP kutubxonaga allaqachon kira oladi.")
+        await state.clear()
+        return
+    if has_library_access(user_id):
+        LIBRARY_SUBSCRIPTIONS.pop(user_id, None)
+        save_data()
+        await message.answer(f"✅ <code>{user_id}</code> foydalanuvchining VIP obunasi bekor qilindi.")
+    else:
+        expires_at = grant_library_subscription(user_id)
+        save_data()
+        await message.answer(
+            f"✅ <code>{user_id}</code> foydalanuvchiga VIP 30 kunga berildi.\n"
+            f"⏳ Tugash vaqti: <b>{expires_at.strftime('%d.%m.%Y %H:%M')}</b>",
+            parse_mode="HTML",
+        )
+    await state.clear()
+
+
+@dp.callback_query(F.data == "admin_payments")
+async def show_pending_payments(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID:
+        await call.answer("❌ Siz admin emassiz!", show_alert=True)
+        return
+    premium_count = len(PENDING_PREMIUM_PAYMENTS)
+    library_count = len(PENDING_LIBRARY_PAYMENTS)
+    lines = [
+        "💰 <b>Kutilayotgan to'lovlar</b>\n\n",
+        f"⭐ Premium chek(lar): <b>{premium_count}</b>\n",
+        f"💎 VIP kutubxona chek(lar): <b>{library_count}</b>\n\n",
+        "Chekni tasdiqlash yoki rad etish uchun admin chatiga kelgan chek xabaridagi tugmalardan foydalaning.",
+    ]
+    if premium_count or library_count:
+        lines.extend(["\n\n<b>Premium chek ID lari:</b>\n"])
+        lines.extend(
+            f"• <code>{escape(payment_id)}</code>\n"
+            for payment_id in list(PENDING_PREMIUM_PAYMENTS)[:20]
+        )
+        lines.extend(["\n<b>VIP chek ID lari:</b>\n"])
+        lines.extend(
+            f"• <code>{escape(payment_id)}</code>\n"
+            for payment_id in list(PENDING_LIBRARY_PAYMENTS)[:20]
+        )
+    message = get_callback_message(call)
+    await call.answer()
+    if message:
+        await message.edit_text(
+            "".join(lines),
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="◀️ Admin panelga qaytish", callback_data="admin_panel_back")]
+            ]),
+        )
+
+
+@dp.callback_query(F.data == "admin_requests")
+async def show_movie_request_info(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID:
+        await call.answer("❌ Siz admin emassiz!", show_alert=True)
+        return
+    await call.answer()
+    message = get_callback_message(call)
+    if message:
+        await message.edit_text(
+            "📥 <b>Kino buyurtmalari</b>\n\n"
+            "Yangi buyurtmalar admin chatiga foydalanuvchi nomi va so'ralgan kino bilan yuboriladi. "
+            "Bot hozircha buyurtmalarni alohida navbatda saqlamaydi.",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="◀️ Admin panelga qaytish", callback_data="admin_panel_back")]
+            ]),
+        )
+
+
+@dp.callback_query(F.data == "admin_promos")
+async def show_promo_codes_info(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID:
+        await call.answer("❌ Siz admin emassiz!", show_alert=True)
+        return
+    await call.answer()
+    message = get_callback_message(call)
+    if message:
+        await message.edit_text(
+            "🎁 <b>Promo-kodlar</b>\n\nHozircha promo-kod tizimi sozlanmagan.",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="◀️ Admin panelga qaytish", callback_data="admin_panel_back")]
+            ]),
+        )
+
+
+@dp.callback_query(F.data == "admin_settings")
+async def show_admin_settings(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID:
+        await call.answer("❌ Siz admin emassiz!", show_alert=True)
+        return
+    await call.answer()
+    message = get_callback_message(call)
+    if message:
+        await message.edit_text(
+            "⚙️ <b>Sozlamalar</b>\n\n"
+            f"🎬 Kinolar: <b>{len(MOVIES_DATABASE)}</b>\n"
+            f"👥 Foydalanuvchilar: <b>{len(ALL_USERS)}</b>\n"
+            f"🎞 Premyera kodi: <code>{escape(str(CURRENT_PREMIERE or 'yo‘q'))}</code>\n"
+            "To'lov kartasi va admin ma'lumotlari .env faylidan boshqariladi.",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="💾 Ma'lumotlarni saqlash", callback_data="admin_save")],
+                [InlineKeyboardButton(text="◀️ Admin panelga qaytish", callback_data="admin_panel_back")],
+            ]),
+        )
 
 
 @dp.callback_query(F.data == "admin_premium")
@@ -1873,7 +2585,7 @@ async def admin_panel_back(call: CallbackQuery):
         return
     await call.answer()
     await message.edit_text(
-        "🛠 <b>Admin boshqaruv paneli</b>\nKerakli amalni tanlang:",
+        "👑 <b>ADMIN PANEL</b>\nKerakli amalni tanlang:",
         parse_mode="HTML",
         reply_markup=build_admin_panel_keyboard(),
     )
@@ -1934,6 +2646,13 @@ async def send_movie(target: Message, code: str, movie: dict, user_id: int | Non
         if user_id is not None:
             VIEWS[user_id] = VIEWS.get(user_id, 0) + 1
             register_daily_view(user_id)
+            if has_library_access(user_id):
+                history = LIBRARY_HISTORY.setdefault(user_id, [])
+                history.append({
+                    "code": code,
+                    "watched_at": datetime.now().isoformat(timespec="minutes"),
+                })
+                del history[:-50]
             save_data()
     except TelegramBadRequest:
         await target.answer("⚠️ Kinoni yuborishda xatolik yuz berdi. Telegram fayl ID eskirgan bo'lishi mumkin.")
@@ -1999,6 +2718,75 @@ async def daily_movie_msg(message: Message):
     await send_movie(message, code, MOVIES_DATABASE[code], message.from_user.id if message.from_user else None)
 
 
+def latest_movies(limit: int = 10) -> list[tuple[str, dict]]:
+    def year_key(item: tuple[str, dict]) -> tuple[int, tuple[int, int | str]]:
+        code, movie = item
+        match = re.search(r"\d{4}", str(movie.get("yil", "")))
+        return (int(match.group()) if match else 0, movie_code_sort_key(code))
+
+    return sorted(MOVIES_DATABASE.items(), key=year_key, reverse=True)[:limit]
+
+
+async def send_latest_movies(message: Message) -> None:
+    movies = latest_movies()
+    if not movies:
+        await message.answer("❌ Hozircha bazada kinolar mavjud emas.")
+        return
+    lines = ["🔥 <b>Yangi kinolar (chiqqan yiliga ko'ra):</b>\n"]
+    for index, (code, movie) in enumerate(movies, 1):
+        title = escape(str(movie.get("name", "Nomsiz")))
+        year = escape(str(movie.get("yil", "Noma'lum")))
+        lines.append(
+            f"{index}. <b>{title}</b> — {year} | "
+            f"kodi: <code>{escape(str(code))}</code>"
+        )
+    lines.append("\n👇 <i>Kinoni ko'rish uchun kodini yuboring!</i>")
+    await message.answer("\n".join(lines), parse_mode="HTML")
+
+
+@dp.message(F.text == "🔥 Yangi kinolar")
+async def latest_movies_msg(message: Message):
+    await send_latest_movies(message)
+
+
+@dp.callback_query(F.data == "menu_new")
+async def latest_movies_callback(call: CallbackQuery):
+    await call.answer()
+    message = get_callback_message(call)
+    if message:
+        await send_latest_movies(message)
+
+
+@dp.message(F.text == "🔎 Kino qidirish")
+async def movie_search_start(message: Message, state: FSMContext):
+    await state.set_state(MovieSearchState.waiting)
+    await message.answer("🔎 Kino nomi, janri yoki yilini yozib qidiring:")
+
+
+@dp.callback_query(F.data == "menu_search")
+async def movie_search_callback(call: CallbackQuery, state: FSMContext):
+    await state.set_state(MovieSearchState.waiting)
+    await call.answer()
+    message = get_callback_message(call)
+    if message:
+        await message.answer("🔎 Kino nomi, janri yoki yilini yozib qidiring:")
+
+
+@dp.message(MovieSearchState.waiting, F.text)
+async def movie_search_finish(message: Message, state: FSMContext):
+    if message.text is None:
+        return
+    matches = find_movie_matches(message.text)
+    await state.clear()
+    if not matches:
+        await message.answer("🔎 Mos kino topilmadi. Boshqa nom, janr yoki yil bilan urinib ko'ring.")
+        return
+    await message.answer(
+        build_results_text("🔎 <b>Qidiruv natijalari:</b>", matches),
+        parse_mode="HTML",
+    )
+
+
 @dp.message(F.text == "🎬 PREMYERA KINO")
 async def premiere_movie_msg(message: Message):
     if not CURRENT_PREMIERE or CURRENT_PREMIERE not in MOVIES_DATABASE:
@@ -2026,18 +2814,93 @@ async def top_movies_msg(message: Message):
     await message.answer(text, parse_mode="HTML")
 
 
-@dp.message(F.text == "⭐ Sevimlilarim")
+@dp.message(F.text.in_({"⭐ Sevimlilarim", "❤️ Sevimlilar"}))
 async def favorites_msg(message: Message):
     user_id = message.from_user.id if message.from_user else 0
-    codes = FAVORITES.get(user_id, set())
-    matches = {code: MOVIES_DATABASE[code] for code in codes if code in MOVIES_DATABASE}
-    if matches:
-        await message.answer(build_results_text("⭐ <b>Sevimli kinolaringiz:</b>", matches), parse_mode="HTML")
-    else:
-        await message.answer("⭐ Sevimlilar ro'yxatingiz hali bo'sh.")
+    await send_library_section(message, user_id, "favorites")
 
 
-@dp.message(F.text == "📊 Statistikam")
+@dp.message(F.text == "📜 Kino tarixi")
+async def movie_history_msg(message: Message):
+    user_id = message.from_user.id if message.from_user else 0
+    await send_library_section(message, user_id, "history")
+
+
+@dp.message(F.text == "📚 Shaxsiy kutubxona")
+async def personal_library_msg(message: Message):
+    if message.from_user is None:
+        return
+    await send_library_home(message, message.from_user.id)
+
+
+@dp.message(F.text == "💎 VIP")
+async def vip_membership_msg(message: Message):
+    if message.from_user is None:
+        return
+    await send_library_home(message, message.from_user.id)
+
+
+@dp.callback_query(F.data == "menu_library")
+async def personal_library_callback(call: CallbackQuery):
+    message = get_callback_message(call)
+    await call.answer()
+    if message:
+        await send_library_home(message, call.from_user.id)
+
+
+@dp.callback_query(F.data.startswith("library_view:"))
+async def library_section_callback(call: CallbackQuery):
+    if not call.data:
+        await call.answer("⚠️ Bo'lim topilmadi.", show_alert=True)
+        return
+    section = call.data.split(":", 1)[1]
+    message = get_callback_message(call)
+    await call.answer()
+    if message:
+        await send_library_section(message, call.from_user.id, section)
+
+
+@dp.callback_query(F.data.startswith("library_remove_later:"))
+async def remove_from_watch_later(call: CallbackQuery):
+    if not call.data:
+        await call.answer("⚠️ Kino topilmadi.", show_alert=True)
+        return
+    if not has_library_access(call.from_user.id):
+        await call.answer("🔒 Bu bo'lim uchun kutubxona obunasi kerak.", show_alert=True)
+        message = get_callback_message(call)
+        if message:
+            await send_library_offer(message)
+        return
+    code = call.data.split(":", 1)[1]
+    if code not in WATCH_LATER.get(call.from_user.id, set()):
+        await call.answer("Bu kino ro'yxatda yo'q.")
+        return
+    WATCH_LATER[call.from_user.id].discard(code)
+    save_data()
+    await call.answer("🗑 Ro'yxatdan olib tashlandi.")
+    message = get_callback_message(call)
+    if message:
+        codes = sorted(
+            (item for item in WATCH_LATER.get(call.from_user.id, set()) if item in MOVIES_DATABASE),
+            key=movie_code_sort_key,
+        )
+        matches = {item: MOVIES_DATABASE[item] for item in codes}
+        if codes:
+            await message.edit_text(
+                build_results_text("🕒 <b>Keyinroq ko'rish ro'yxati:</b>", matches),
+                parse_mode="HTML",
+                reply_markup=library_later_keyboard(codes[:20]),
+            )
+        else:
+            await message.edit_text(
+                "🕒 Keyinroq ko'rish ro'yxatingiz bo'sh.",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+                    InlineKeyboardButton(text="◀️ Kutubxona", callback_data="menu_library")
+                ]]),
+            )
+
+
+@dp.message(F.text.in_({"📊 Statistikam", "👤 Mening profilim"}))
 async def my_stats_msg(message: Message):
     user_id = message.from_user.id if message.from_user else 0
     liked_count = sum(user_id in movie["likes"] for movie in MOVIES_DATABASE.values())
@@ -2053,20 +2916,21 @@ async def my_stats_msg(message: Message):
     )
 
 
-@dp.message(F.text == "📝 Kino so'rash")
+@dp.message(F.text.in_({"📝 Kino so'rash", "📥 Kino buyurtma qilish"}))
 async def request_movie_msg(message: Message, state: FSMContext):
     await state.set_state(MovieRequestState.waiting)
     await message.answer("📝 Qaysi kinoni topishni istaysiz? Nomini yozib yuboring.")
 
 
-@dp.message(F.text.in_({"🤝 Do'stni taklif qilish", "🤝 Do'stlarni taklif qilish"}))
+@dp.message(F.text.in_({"🤝 Do'stni taklif qilish", "🤝 Do'stlarni taklif qilish", "👥 Referal"}))
 async def referral_msg(message: Message):
     user_id = message.from_user.id if message.from_user else 0
     link = f"https://t.me/{BOT_USERNAME}?start=ref{user_id}" if BOT_USERNAME else "Bot username aniqlanmagan"
     await message.answer(f"🤝 Shaxsiy taklif havolangiz:\n<code>{link}</code>", parse_mode="HTML")
 
 
-@dp.message(F.text == "📞 Admin bilan bog'lanish")
+@dp.message(F.text.in_({"📞 Admin bilan bog'lanish", "📞 Yordam"}))
+
 async def contact_admin_msg(message: Message):
     if ADMIN_USERNAME:
         await message.answer(f"📞 Admin bilan bog'lanish: https://t.me/{ADMIN_USERNAME}")
@@ -2129,18 +2993,10 @@ async def show_top_movies(call: CallbackQuery):
 
 @dp.callback_query(F.data == "menu_favorites")
 async def show_favorites(call: CallbackQuery):
-    user_id = call.from_user.id
-    register_user(call.from_user)
-    codes = FAVORITES.get(user_id, set())
     message = get_callback_message(call)
     await call.answer()
-    if not codes:
-        if message:
-            await message.answer("⭐ Sevimlilar ro'yxatingiz hali bo'sh. Kino ostidagi ⭐ tugmasini bosing!")
-        return
-    matches = {c: MOVIES_DATABASE[c] for c in codes if c in MOVIES_DATABASE}
     if message:
-        await message.answer(build_results_text("⭐ <b>Sevimli kinolaringiz:</b>", matches), parse_mode="HTML")
+        await send_library_section(message, call.from_user.id, "favorites")
 
 
 @dp.callback_query(F.data == "menu_stats")
@@ -2186,6 +3042,18 @@ async def show_referral_link(call: CallbackQuery):
     message = get_callback_message(call)
     if message:
         await message.answer(text, parse_mode="HTML")
+
+
+@dp.callback_query(F.data == "menu_help")
+async def show_help_contact(call: CallbackQuery):
+    await call.answer()
+    message = get_callback_message(call)
+    if message is None:
+        return
+    if ADMIN_USERNAME:
+        await message.answer(f"📞 Yordam uchun admin bilan bog'laning: https://t.me/{ADMIN_USERNAME}")
+    else:
+        await message.answer("⚠️ Yordam uchun admin username'i hali sozlanmagan.")
 
 
 @dp.callback_query(F.data == "menu_request")
@@ -2304,6 +3172,12 @@ async def toggle_favorite(call: CallbackQuery):
         await call.answer("❌ Kino topilmadi.", show_alert=True)
         return
     user_id = call.from_user.id
+    if not has_library_access(user_id):
+        await call.answer("🔒 Sevimlilar uchun pullik kutubxona kerak.", show_alert=True)
+        message = get_callback_message(call)
+        if message:
+            await send_library_offer(message)
+        return
     favs = FAVORITES.setdefault(user_id, set())
     if code in favs:
         favs.discard(code)
@@ -2311,6 +3185,39 @@ async def toggle_favorite(call: CallbackQuery):
     else:
         favs.add(code)
         await call.answer("⭐ Sevimlilarga qo'shildi!")
+    save_data()
+    message = get_callback_message(call)
+    if message:
+        try:
+            await message.edit_reply_markup(reply_markup=build_movie_keyboard(code, movie, user_id))
+        except TelegramBadRequest:
+            pass
+
+
+@dp.callback_query(F.data.startswith("later:"))
+async def toggle_watch_later(call: CallbackQuery):
+    if not call.data:
+        await call.answer("❌ Noto'g'ri tugma.", show_alert=True)
+        return
+    code = call.data.split(":", 1)[1]
+    movie = MOVIES_DATABASE.get(code)
+    if movie is None:
+        await call.answer("❌ Kino topilmadi.", show_alert=True)
+        return
+    user_id = call.from_user.id
+    if not has_library_access(user_id):
+        await call.answer("🔒 Keyinroq ro'yxati uchun pullik kutubxona kerak.", show_alert=True)
+        message = get_callback_message(call)
+        if message:
+            await send_library_offer(message)
+        return
+    later = WATCH_LATER.setdefault(user_id, set())
+    if code in later:
+        later.discard(code)
+        await call.answer("🗑 Keyinroq ro'yxatidan olib tashlandi.")
+    else:
+        later.add(code)
+        await call.answer("🕒 Keyinroq ko'rish ro'yxatiga qo'shildi.")
     save_data()
     message = get_callback_message(call)
     if message:
