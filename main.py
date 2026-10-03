@@ -785,6 +785,7 @@ def get_callback_message(call: CallbackQuery) -> Message | None:
 def has_instagram_access(user_id: int | None) -> bool:
     return (
         user_id == ADMIN_ID
+        or has_premium_access(user_id)
         or not BOT_SETTINGS["instagram_required"]
         or user_id in INSTAGRAM_CONFIRMED_USERS
     )
@@ -1283,7 +1284,7 @@ async def start_cmd(message: Message, command: CommandObject | None = None):
         )
         return
 
-    if not BOT_SETTINGS["instagram_required"] or message.from_user.id in INSTAGRAM_CONFIRMED_USERS:
+    if has_instagram_access(message.from_user.id):
         await message.answer(
             f"👋 <b>Xush kelibsiz, {escape(message.from_user.full_name)}!</b>\n"
             "Kerakli bo'limni pastki menyudan tanlang:",
