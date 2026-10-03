@@ -943,6 +943,7 @@ def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="📥 Kino buyurtmalari"), KeyboardButton(text="💰 To'lovlar")],
             [KeyboardButton(text="🎁 Promo-kodlar"), KeyboardButton(text="📢 Reklama yuborish")],
             [KeyboardButton(text="👥 Referallar"), KeyboardButton(text="🏆 Taklif qilganlar")],
+            [KeyboardButton(text="💎 Premium obunachilar"), KeyboardButton(text="🆓 Oddiy obunachilar")],
             [KeyboardButton(text="📚 Kinolar ro'yxati"), KeyboardButton(text="👤 Foydalanuvchi paneli")],
         ],
         is_persistent=True,
@@ -1389,6 +1390,8 @@ async def admin_panel_callback(call: CallbackQuery):
     F.text.in_({
         "📊 Statistika",
         "👥 Foydalanuvchilar",
+        "💎 Premium obunachilar",
+        "🆓 Oddiy obunachilar",
         "🎬 Kino qo'shish",
         "🗑 Kino o'chirish",
         "💎 Premium berish",
@@ -1425,6 +1428,10 @@ async def admin_reply_panel_action(message: Message, state: FSMContext):
         )
     elif action == "👥 Foydalanuvchilar":
         await admin_users_msg(message)
+    elif action == "💎 Premium obunachilar":
+        await admin_users_msg(message, premium_filter=True)
+    elif action == "🆓 Oddiy obunachilar":
+        await admin_users_msg(message, premium_filter=False)
     elif action == "🎬 Kino qo'shish":
         await start_movie_add(message, state)
     elif action == "🗑 Kino o'chirish":
@@ -1828,6 +1835,7 @@ async def premium_receipt_received(message: Message, state: FSMContext):
     user = message.from_user
     username = f"@{user.username}" if user.username else "Username mavjud emas"
     payment_id = uuid4().hex[:12]
+    register_user(user)
     PENDING_PREMIUM_PAYMENTS[payment_id] = {
         "user_id": user.id,
         "plan_code": plan_code,
@@ -1907,6 +1915,16 @@ async def approve_premium_payment(call: CallbackQuery):
         return
 
     expires_at = grant_premium_subscription(recipient_id, plan_code)
+    ALL_USERS.add(recipient_id)
+    USER_INFO.setdefault(
+        recipient_id,
+        {
+            "name": "Noma'lum",
+            "username": "Mavjud emas",
+            "phone": "Mavjud emas",
+            "joined": "Noma'lum",
+        },
+    )
     save_data()
     activation_text = (
         "🎁 Sizga Premium sovg'a qilindi! Gold Cinema Premium faollashtirildi.\n"
@@ -2138,24 +2156,65 @@ async def save_user_contact(message: Message):
 
 
 @dp.message(F.text == "👥 Foydalanuvchilar ro'yxati")
-async def admin_users_msg(message: Message):
+async def admin_users_msg(message: Message, premium_filter: bool | None = None):
     if message.from_user is None or message.from_user.id != ADMIN_ID:
         return
-    if not ALL_USERS:
-        await message.answer("ℹ️ Hozircha foydalanuvchilar bazasi bo'sh.", reply_markup=build_admin_reply_keyboard())
+    premium_users = active_premium_user_ids()
+    candidate_users = set(ALL_USERS) | premium_users | set(PREMIUM_OVERRIDES)
+    if premium_filter is True:
+        user_ids = {
+            user_id for user_id in candidate_users
+            if has_premium_access(user_id)
+        }
+        title = "💎 <b>Premium obunachilar</b>"
+    elif premium_filter is False:
+        user_ids = {
+            user_id for user_id in ALL_USERS
+            if not has_premium_access(user_id)
+        }
+        title = "🆓 <b>Oddiy obunachilar</b>"
+    else:
+        user_ids = set(ALL_USERS)
+        title = "👥 <b>Foydalanuvchilar bazasi</b>"
+    if not user_ids:
+        empty_message = (
+            "ℹ️ Bu ro'yxatda hozircha foydalanuvchi yo'q."
+            if premium_filter is not None
+            else "ℹ️ Hozircha foydalanuvchilar bazasi bo'sh."
+        )
+        await message.answer(
+            empty_message,
+            reply_markup=build_admin_reply_keyboard(),
+        )
         return
-    text = f"👥 <b>Foydalanuvchilar bazasi (jami: {len(ALL_USERS)} ta):</b>\n\n"
-    for idx, user_id in enumerate(ALL_USERS, 1):
+    premium_count = sum(has_premium_access(user_id) for user_id in user_ids)
+    free_count = len(user_ids) - premium_count
+    text = (
+        f"{title} (jami: {len(user_ids)} ta)\n"
+        f"💎 Premium: <b>{premium_count}</b> | 🆓 Bepul: <b>{free_count}</b>\n\n"
+    )
+    for idx, user_id in enumerate(sorted(user_ids), 1):
         info = USER_INFO.get(user_id, {})
         name = info.get("name", "Noma'lum")
         joined = info.get("joined", "Noma'lum")
         phone = info.get("phone", "Mavjud emas")
+        premium_status = "🆓 Bepul"
+        if has_premium_access(user_id):
+            premium_status = "💎 Premium"
+            expires_at = PREMIUM_SUBSCRIPTIONS.get(user_id)
+            if expires_at:
+                try:
+                    expiry_label = datetime.fromisoformat(expires_at).strftime("%d.%m.%Y %H:%M")
+                    premium_status += f" (tugaydi: {expiry_label})"
+                except ValueError as error:
+                    print(f"Premium muddati formatida xatolik (ID {user_id}): {error}")
         text += (
             f"<b>{idx}. {escape(str(name))}</b>\n"
             f"├ ID: <code>{user_id}</code>\n"
             f"├ Username: {escape(str(info.get('username', 'Mavjud emas')))}\n"
             f"├ Telefon: {escape(str(phone))}\n"
-            f"├ Taklif qilganlar: {len(REFERRALS.get(user_id, set()))} ta\n"
+            f"├ Obuna: {premium_status}\n"
+            f"├ Taklif qilganlar: <b>{len(REFERRALS.get(user_id, set()))}</b> ta\n"
             f"└ Qo'shilgan: {escape(str(joined))}\n\n"
         )
     await message.answer(text[:4000], parse_mode="HTML", reply_markup=build_admin_reply_keyboard())
