@@ -929,7 +929,6 @@ def build_movie_keyboard(code: str, movie: dict, user_id: int | None = None) -> 
             InlineKeyboardButton(text=f"👎 {dislikes}", callback_data=f"dislike:{code}"),
         ],
         [InlineKeyboardButton(text=fav_text, callback_data=f"fav:{code}")],
-        [InlineKeyboardButton(text="🔄 Boshqa kino", callback_data="menu_rand")],
         [InlineKeyboardButton(text=later_text, callback_data=f"later:{code}")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
