@@ -813,46 +813,34 @@ def build_movie_keyboard(code: str, movie: dict, user_id: int | None = None) -> 
 def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
-            [
-                KeyboardButton(text="👑 Admin panel"),
-                KeyboardButton(text="👤 Foydalanuvchi paneli"),
-            ],
+            [KeyboardButton(text="📊 Statistika"), KeyboardButton(text="👥 Foydalanuvchilar")],
+            [KeyboardButton(text="🎬 Kino qo'shish"), KeyboardButton(text="🗑 Kino o'chirish")],
+            [KeyboardButton(text="⭐ Premium boshqarish"), KeyboardButton(text="💎 VIP boshqarish")],
+            [KeyboardButton(text="📥 Kino buyurtmalari"), KeyboardButton(text="💰 To'lovlar")],
+            [KeyboardButton(text="🎁 Promo-kodlar"), KeyboardButton(text="👥 Referallar")],
+            [KeyboardButton(text="📢 Reklama yuborish"), KeyboardButton(text="⚙️ Sozlamalar")],
+            [KeyboardButton(text="👤 Foydalanuvchi paneli")],
         ],
         resize_keyboard=True,
     )
 
 
-def build_user_reply_keyboard() -> ReplyKeyboardMarkup:
+def build_user_reply_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
     """Foydalanuvchi uchun so'ralgan 2 ustunli boshqaruv paneli."""
+    keyboard = [
+        [KeyboardButton(text="🔎 Kino qidirish"), KeyboardButton(text="🔥 Yangi kinolar")],
+        [KeyboardButton(text="⭐ Premium"), KeyboardButton(text="🎁 Premium sovg'a qilish")],
+        [KeyboardButton(text="📥 Kino buyurtma qilish"), KeyboardButton(text="❤️ Sevimlilar")],
+        [KeyboardButton(text="📜 Kino tarixi"), KeyboardButton(text="👤 Mening profilim")],
+        [KeyboardButton(text="💎 VIP"), KeyboardButton(text="👥 Referal")],
+        [KeyboardButton(text="📞 Yordam")],
+    ]
+    if is_admin:
+        keyboard.append([KeyboardButton(text="👑 Admin panel")])
     return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="🔎 Kino qidirish"), KeyboardButton(text="🔥 Yangi kinolar")],
-            [KeyboardButton(text="⭐ Premium"), KeyboardButton(text="🎁 Premium sovg'a qilish")],
-            [KeyboardButton(text="📥 Kino buyurtma qilish"), KeyboardButton(text="❤️ Sevimlilar")],
-            [KeyboardButton(text="📜 Kino tarixi"), KeyboardButton(text="👤 Mening profilim")],
-            [KeyboardButton(text="💎 VIP"), KeyboardButton(text="👥 Referal")],
-            [KeyboardButton(text="📞 Yordam")],
-        ],
+        keyboard=keyboard,
         resize_keyboard=True,
     )
-
-
-def build_admin_panel_keyboard() -> InlineKeyboardMarkup:
-    keyboard = [
-        [InlineKeyboardButton(text="📊 Statistika", callback_data="admin_stats"),
-         InlineKeyboardButton(text="👥 Foydalanuvchilar", callback_data="admin_users")],
-        [InlineKeyboardButton(text="🎬 Kino qo'shish", callback_data="admin_add"),
-         InlineKeyboardButton(text="🗑 Kino o'chirish", callback_data="admin_delete")],
-        [InlineKeyboardButton(text="⭐ Premium boshqarish", callback_data="admin_premium_manage"),
-         InlineKeyboardButton(text="💎 VIP boshqarish", callback_data="admin_vip_manage")],
-        [InlineKeyboardButton(text="📥 Kino buyurtmalari", callback_data="admin_requests"),
-         InlineKeyboardButton(text="💰 To'lovlar", callback_data="admin_payments")],
-        [InlineKeyboardButton(text="🎁 Promo-kodlar", callback_data="admin_promos"),
-         InlineKeyboardButton(text="👥 Referallar", callback_data="admin_referrals")],
-        [InlineKeyboardButton(text="📢 Reklama yuborish", callback_data="admin_broadcast"),
-         InlineKeyboardButton(text="⚙️ Sozlamalar", callback_data="admin_settings")],
-    ]
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
 def find_movie_matches(query: str) -> dict:
@@ -1155,12 +1143,8 @@ async def start_cmd(message: Message, command: CommandObject | None = None):
     if message.from_user.id == ADMIN_ID:
         await message.answer(
             f"👑 <b>Xush kelibsiz, Admin {message.from_user.full_name}!</b>\n\n"
-            "Kerakli amalni tanlang:",
+            "Kerakli amalni pastki paneldan tanlang:",
             parse_mode="HTML",
-            reply_markup=build_admin_panel_keyboard(),
-        )
-        await message.answer(
-            "Panelni almashtirish uchun pastki tugmalardan foydalaning:",
             reply_markup=build_admin_reply_keyboard(),
         )
         return
@@ -1207,9 +1191,9 @@ async def admin_panel_msg(message: Message):
     if message.from_user is None or message.from_user.id != ADMIN_ID:
         return
     await message.answer(
-        "👑 <b>ADMIN PANEL</b>\nKerakli amalni tanlang:",
+        "👑 <b>ADMIN PANEL</b>\nKerakli amalni pastki paneldan tanlang:",
         parse_mode="HTML",
-        reply_markup=build_admin_panel_keyboard(),
+        reply_markup=build_admin_reply_keyboard(),
     )
 
 
@@ -1220,7 +1204,7 @@ async def user_panel_msg(message: Message):
     await message.answer(
         "🎬 <b>Foydalanuvchi paneli</b>\nKerakli bo'limni pastki menyudan tanlang:",
         parse_mode="HTML",
-        reply_markup=build_user_reply_keyboard(),
+        reply_markup=build_user_reply_keyboard(message.from_user.id == ADMIN_ID),
     )
 
 
@@ -1233,7 +1217,7 @@ async def user_panel_callback(call: CallbackQuery):
     await message.answer(
         "🎬 <b>Foydalanuvchi paneli</b>\nKerakli bo'limni pastki menyudan tanlang:",
         parse_mode="HTML",
-        reply_markup=build_user_reply_keyboard(),
+        reply_markup=build_user_reply_keyboard(call.from_user.id == ADMIN_ID),
     )
 
 
@@ -1246,9 +1230,137 @@ async def admin_panel_callback(call: CallbackQuery):
     message = get_callback_message(call)
     if message:
         await message.edit_text(
-            "👑 <b>ADMIN PANEL</b>\nKerakli amalni tanlang:",
+            "👑 <b>ADMIN PANEL</b>\nKerakli amalni pastki paneldan tanlang:",
             parse_mode="HTML",
-            reply_markup=build_admin_panel_keyboard(),
+            reply_markup=None,
+        )
+        await message.answer(
+            "👑 Admin panel:",
+            reply_markup=build_admin_reply_keyboard(),
+        )
+
+
+@dp.message(
+    StateFilter(None),
+    F.text.in_({
+        "📊 Statistika",
+        "👥 Foydalanuvchilar",
+        "🎬 Kino qo'shish",
+        "🗑 Kino o'chirish",
+        "⭐ Premium boshqarish",
+        "💎 VIP boshqarish",
+        "📥 Kino buyurtmalari",
+        "💰 To'lovlar",
+        "🎁 Promo-kodlar",
+        "👥 Referallar",
+        "📢 Reklama yuborish",
+        "⚙️ Sozlamalar",
+    }),
+)
+async def admin_reply_panel_action(message: Message, state: FSMContext):
+    if message.from_user is None or message.from_user.id != ADMIN_ID:
+        return
+
+    action = message.text
+    if action == "📊 Statistika":
+        total_views = sum(VIEWS.values())
+        total_likes = sum(len(movie["likes"]) for movie in MOVIES_DATABASE.values())
+        total_referrals = sum(len(users) for users in REFERRALS.values())
+        await message.answer(
+            "📊 <b>Bot statistikasi</b>\n\n"
+            f"👥 Foydalanuvchilar: <b>{len(ALL_USERS)}</b>\n"
+            f"💎 Premium foydalanuvchilar: <b>{len(active_premium_user_ids())}</b>\n"
+            f"🤝 Takliflar: <b>{total_referrals}</b>\n"
+            f"🎬 Kinolar: <b>{len(MOVIES_DATABASE)}</b>\n"
+            f"👁 Ko'rishlar: <b>{total_views}</b>\n"
+            f"👍 Like'lar: <b>{total_likes}</b>",
+            parse_mode="HTML",
+            reply_markup=build_admin_reply_keyboard(),
+        )
+    elif action == "👥 Foydalanuvchilar":
+        await admin_users_msg(message)
+    elif action == "🎬 Kino qo'shish":
+        await start_movie_add(message, state)
+    elif action == "🗑 Kino o'chirish":
+        await state.set_state(DeleteMovie.code)
+        await message.answer(
+            "🗑 O'chiriladigan kino kodini yuboring:\nBekor qilish uchun /cancel yuboring."
+        )
+    elif action == "⭐ Premium boshqarish":
+        await state.set_state(AdminPremium.user_id)
+        await message.answer("⭐ Premium berish yoki olish uchun foydalanuvchi Telegram ID sini yuboring:")
+    elif action == "💎 VIP boshqarish":
+        await state.set_state(AdminVip.user_id)
+        active_vips = sum(
+            1 for user_id in LIBRARY_SUBSCRIPTIONS
+            if has_library_access(user_id) and not has_premium_access(user_id)
+        )
+        await message.answer(
+            f"💎 <b>VIP boshqarish</b>\nFaol VIP obunalar: <b>{active_vips}</b>\n\n"
+            "VIP berish yoki muddatini uzaytirish uchun foydalanuvchi ID sini yuboring.\n"
+            "Faol VIP obunasi bor ID yuborilsa, bekor qilinadi. Bekor qilish: /cancel",
+            parse_mode="HTML",
+        )
+    elif action == "📥 Kino buyurtmalari":
+        await message.answer(
+            "📥 <b>Kino buyurtmalari</b>\n\n"
+            "Yangi buyurtmalar admin chatiga foydalanuvchi va kino nomi bilan yuboriladi. "
+            "Alohida buyurtmalar navbati hozircha yo'q.",
+            parse_mode="HTML",
+            reply_markup=build_admin_reply_keyboard(),
+        )
+    elif action == "💰 To'lovlar":
+        await message.answer(
+            "💰 <b>Kutilayotgan to'lovlar</b>\n\n"
+            f"⭐ Premium cheklar: <b>{len(PENDING_PREMIUM_PAYMENTS)}</b>\n"
+            f"💎 VIP cheklar: <b>{len(PENDING_LIBRARY_PAYMENTS)}</b>\n\n"
+            "Tasdiqlash yoki rad etish uchun chek xabaridagi tugmalardan foydalaning.",
+            parse_mode="HTML",
+            reply_markup=build_admin_reply_keyboard(),
+        )
+    elif action == "🎁 Promo-kodlar":
+        await message.answer(
+            "🎁 Promo-kodlar tizimi hozircha sozlanmagan.",
+            reply_markup=build_admin_reply_keyboard(),
+        )
+    elif action == "👥 Referallar":
+        ranked_users = sorted(
+            ALL_USERS,
+            key=lambda user_id: (-len(REFERRALS.get(user_id, set())), user_id),
+        )
+        total_referrals = sum(len(REFERRALS.get(user_id, set())) for user_id in ALL_USERS)
+        lines = [
+            "👥 <b>Referallar hisoboti</b>\n\n",
+            f"Jami taklif orqali kelganlar: <b>{total_referrals}</b>\n\n",
+        ]
+        for index, user_id in enumerate(ranked_users, 1):
+            info = USER_INFO.get(user_id, {})
+            name = escape(str(info.get("name", "Noma'lum")))
+            line = (
+                f"{index}. <b>{name}</b> — "
+                f"{len(REFERRALS.get(user_id, set()))} ta | <code>{user_id}</code>\n"
+            )
+            if sum(map(len, lines)) + len(line) > 3800:
+                lines.append("\n⚠️ Ro'yxat uzunligi sababli qisqartirildi.")
+                break
+            lines.append(line)
+        await message.answer(
+            "".join(lines),
+            parse_mode="HTML",
+            reply_markup=build_admin_reply_keyboard(),
+        )
+    elif action == "📢 Reklama yuborish":
+        await state.set_state(BroadcastState.message)
+        await message.answer("📢 Barcha foydalanuvchilarga yuboriladigan xabar matnini kiriting:")
+    elif action == "⚙️ Sozlamalar":
+        await message.answer(
+            "⚙️ <b>Sozlamalar</b>\n\n"
+            f"🎬 Kinolar: <b>{len(MOVIES_DATABASE)}</b>\n"
+            f"👥 Foydalanuvchilar: <b>{len(ALL_USERS)}</b>\n"
+            f"🎞 Premyera kodi: <code>{escape(str(CURRENT_PREMIERE or 'yo‘q'))}</code>\n"
+            "To'lov kartasi va admin ma'lumotlari .env faylidan boshqariladi.",
+            parse_mode="HTML",
+            reply_markup=build_admin_reply_keyboard(),
         )
 
 
@@ -2036,7 +2148,8 @@ async def show_users_list(call: CallbackQuery):
         if message is None:
             await call.answer("⚠️ Bu xabarni o'zgartirib bo'lmaydi.", show_alert=True)
             return
-        await message.edit_text("ℹ️ Hozircha foydalanuvchilar bazasi bo'sh.", reply_markup=build_admin_panel_keyboard())
+        await message.edit_text("ℹ️ Hozircha foydalanuvchilar bazasi bo'sh.", reply_markup=None)
+        await message.answer("👑 Admin panel:", reply_markup=build_admin_reply_keyboard())
         return
 
     text = f"👥 <b>Foydalanuvchilar Bazasi (Jami: {len(ALL_USERS)} ta):</b>\n\n"
@@ -2587,10 +2700,11 @@ async def admin_panel_back(call: CallbackQuery):
         return
     await call.answer()
     await message.edit_text(
-        "👑 <b>ADMIN PANEL</b>\nKerakli amalni tanlang:",
+        "👑 <b>ADMIN PANEL</b>\nKerakli amalni pastki paneldan tanlang:",
         parse_mode="HTML",
-        reply_markup=build_admin_panel_keyboard(),
+        reply_markup=None,
     )
+    await message.answer("👑 Admin panel:", reply_markup=build_admin_reply_keyboard())
 
 
 def get_next_movie_code() -> str:
