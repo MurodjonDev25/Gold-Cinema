@@ -27,6 +27,7 @@ from aiogram.types import (
     KeyboardButton,
     Message,
     ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
     FSInputFile,
 )
 from dotenv import load_dotenv
@@ -943,7 +944,7 @@ def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="📥 Kino buyurtmalari"), KeyboardButton(text="💰 To'lovlar")],
             [KeyboardButton(text="🎁 Promo-kodlar"), KeyboardButton(text="📢 Reklama yuborish")],
             [KeyboardButton(text="👥 Referallar"), KeyboardButton(text="🏆 Taklif qilganlar")],
-            [KeyboardButton(text="📚 Kinolar ro'yxati"), KeyboardButton(text="⬆️ Panelni yashirish")],
+            [KeyboardButton(text="📚 Kinolar ro'yxati"), KeyboardButton(text="⬇️ Tugmalarni yashirish")],
         ],
         is_persistent=True,
         one_time_keyboard=False,
@@ -1329,7 +1330,7 @@ async def admin_panel_msg(message: Message, state: FSMContext):
     )
 
 
-@dp.message(F.text.in_({"⬆️ Panelni yashirish", "👤 Foydalanuvchi paneli"}))
+@dp.message(F.text == "👤 Foydalanuvchi paneli")
 async def user_panel_msg(message: Message):
     if message.from_user is None:
         return
@@ -1337,6 +1338,17 @@ async def user_panel_msg(message: Message):
         "🎬 <b>Foydalanuvchi paneli</b>\nKerakli bo'limni pastki menyudan tanlang:",
         parse_mode="HTML",
         reply_markup=build_user_reply_keyboard(message.from_user.id == ADMIN_ID),
+    )
+
+
+@dp.message(F.text == "⬇️ Tugmalarni yashirish")
+async def hide_admin_keyboard(message: Message, state: FSMContext):
+    if message.from_user is None or message.from_user.id != ADMIN_ID:
+        return
+    await state.clear()
+    await message.answer(
+        "⬇️ Admin panel tugmalari yashirildi. Qayta chiqarish uchun /start yuboring.",
+        reply_markup=ReplyKeyboardRemove(),
     )
 
 
