@@ -11,7 +11,7 @@ from uuid import uuid4
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
-from aiogram.filters import CommandObject, CommandStart
+from aiogram.filters import CommandObject, CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -3425,6 +3425,19 @@ async def toggle_watch_later(call: CallbackQuery):
             await message.edit_reply_markup(reply_markup=build_movie_keyboard(code, movie, user_id))
         except TelegramBadRequest:
             pass
+
+
+@dp.message(StateFilter(None), F.text)
+async def send_movie_by_code(message: Message):
+    if message.text is None:
+        return
+    code = message.text.strip()
+    movie = MOVIES_DATABASE.get(code)
+    if movie is None:
+        return
+    register_user(message.from_user)
+    user_id = message.from_user.id if message.from_user else None
+    await send_movie(message, code, movie, user_id)
 
 
 # ======================================================================================
