@@ -943,7 +943,7 @@ def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="📥 Kino buyurtmalari"), KeyboardButton(text="💰 To'lovlar")],
             [KeyboardButton(text="🎁 Promo-kodlar"), KeyboardButton(text="📢 Reklama yuborish")],
             [KeyboardButton(text="👥 Referallar"), KeyboardButton(text="🏆 Taklif qilganlar")],
-            [KeyboardButton(text="📚 Kinolar ro'yxati"), KeyboardButton(text="👤 Foydalanuvchi paneli")],
+            [KeyboardButton(text="📚 Kinolar ro'yxati"), KeyboardButton(text="⬆️ Panelni yashirish")],
         ],
         is_persistent=True,
         one_time_keyboard=False,
@@ -964,7 +964,7 @@ def build_user_reply_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
     if is_admin:
         keyboard.append([
             KeyboardButton(text="📞 Yordam"),
-            KeyboardButton(text="👑 Admin panel"),
+            KeyboardButton(text="👑 Admin panelni ochish"),
         ])
     else:
         keyboard.append([KeyboardButton(text="📞 Yordam")])
@@ -1317,7 +1317,7 @@ async def instagram_subscription_confirmed(call: CallbackQuery):
         )
 
 
-@dp.message(F.text == "👑 Admin panel")
+@dp.message(F.text.in_({"👑 Admin panelni ochish", "👑 Admin panel"}))
 async def admin_panel_msg(message: Message, state: FSMContext):
     if message.from_user is None or message.from_user.id != ADMIN_ID:
         return
@@ -1329,7 +1329,7 @@ async def admin_panel_msg(message: Message, state: FSMContext):
     )
 
 
-@dp.message(F.text == "👤 Foydalanuvchi paneli")
+@dp.message(F.text.in_({"⬆️ Panelni yashirish", "👤 Foydalanuvchi paneli"}))
 async def user_panel_msg(message: Message):
     if message.from_user is None:
         return
