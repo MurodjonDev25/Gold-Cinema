@@ -846,10 +846,14 @@ def build_user_reply_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
         [KeyboardButton(text="📥 Kino buyurtma qilish"), KeyboardButton(text="❤️ Sevimlilar")],
         [KeyboardButton(text="📜 Kino tarixi"), KeyboardButton(text="👤 Mening profilim")],
         [KeyboardButton(text="💎 VIP"), KeyboardButton(text="👥 Referal")],
-        [KeyboardButton(text="📞 Yordam")],
     ]
     if is_admin:
-        keyboard.append([KeyboardButton(text="👑 Admin panel")])
+        keyboard.append([
+            KeyboardButton(text="📞 Yordam"),
+            KeyboardButton(text="👑 Admin panel"),
+        ])
+    else:
+        keyboard.append([KeyboardButton(text="📞 Yordam")])
     return ReplyKeyboardMarkup(
         keyboard=keyboard,
         resize_keyboard=True,
