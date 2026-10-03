@@ -959,7 +959,7 @@ def build_user_reply_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
         [KeyboardButton(text="⭐ Premium"), KeyboardButton(text="🎁 Premium sovg'a qilish")],
         [KeyboardButton(text="📥 Kino buyurtma qilish"), KeyboardButton(text="❤️ Sevimlilar")],
         [KeyboardButton(text="🕒 Keyin ko'raman"), KeyboardButton(text="👤 Mening profilim")],
-        [KeyboardButton(text="💎 VIP"), KeyboardButton(text="👥 Referal")],
+        [KeyboardButton(text="📚 Shaxsiy kutubxona"), KeyboardButton(text="👥 Referal")],
     ]
     if is_admin:
         keyboard.append([
@@ -1136,7 +1136,7 @@ async def send_library_home(message: Message, user_id: int) -> None:
 
 
 async def send_library_section(message: Message, user_id: int, section: str) -> None:
-    if section != "later" and not has_library_access(user_id):
+    if not has_library_access(user_id):
         await send_library_offer(message)
         return
 
@@ -3317,6 +3317,12 @@ async def remove_from_watch_later(call: CallbackQuery):
     if not call.data:
         await call.answer("⚠️ Kino topilmadi.", show_alert=True)
         return
+    if not has_library_access(call.from_user.id):
+        await call.answer("🔒 Keyin ko'raman ro'yxati uchun kutubxona obunasi kerak.", show_alert=True)
+        message = get_callback_message(call)
+        if message:
+            await send_library_offer(message)
+        return
     code = call.data.split(":", 1)[1]
     if code not in WATCH_LATER.get(call.from_user.id, set()):
         await call.answer("Bu kino ro'yxatda yo'q.")
@@ -3656,6 +3662,12 @@ async def toggle_watch_later(call: CallbackQuery):
         await call.answer("❌ Kino topilmadi.", show_alert=True)
         return
     user_id = call.from_user.id
+    if not has_library_access(user_id):
+        await call.answer("🔒 Keyin ko'raman ro'yxati pullik kutubxona obunasi bilan ochiladi.", show_alert=True)
+        message = get_callback_message(call)
+        if message:
+            await send_library_offer(message)
+        return
     later = WATCH_LATER.setdefault(user_id, set())
     if code in later:
         later.discard(code)
