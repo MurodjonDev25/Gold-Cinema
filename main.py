@@ -1284,7 +1284,7 @@ async def start_cmd(message: Message, command: CommandObject | None = None):
             f"👋 <b>Xush kelibsiz, {escape(message.from_user.full_name)}!</b>\n"
             "Kerakli bo'limni pastki menyudan tanlang:",
             parse_mode="HTML",
-            reply_markup=build_user_reply_keyboard(),
+            reply_markup=build_user_reply_keyboard(message.from_user.id == ADMIN_ID),
         )
         return
 
@@ -1312,7 +1312,7 @@ async def instagram_subscription_confirmed(call: CallbackQuery):
         )
         await message.answer(
             "🎬 Foydalanuvchi paneli:",
-            reply_markup=build_user_reply_keyboard(),
+            reply_markup=build_user_reply_keyboard(call.from_user.id == ADMIN_ID),
         )
 
 
@@ -1865,7 +1865,9 @@ async def premium_receipt_received(message: Message, state: FSMContext):
     await message.answer(
         "✅ Chekingiz adminga yuborildi. "
         "To'lov tasdiqlangach Premium faollashadi yoki sovg'a qabul qiluvchiga beriladi.",
-        reply_markup=build_user_reply_keyboard(),
+        reply_markup=build_user_reply_keyboard(
+            message.from_user is not None and message.from_user.id == ADMIN_ID
+        ),
     )
 
 
@@ -2117,7 +2119,7 @@ async def save_user_contact(message: Message):
     save_data()
     await message.answer(
         "✅ Telefon raqamingiz bazaga saqlandi.",
-        reply_markup=build_user_reply_keyboard(),
+        reply_markup=build_user_reply_keyboard(message.from_user.id == ADMIN_ID),
     )
 
 
@@ -3555,7 +3557,7 @@ async def home_callback(call: CallbackQuery):
     )
     await message.answer(
         "🎬 Foydalanuvchi paneli:",
-        reply_markup=build_user_reply_keyboard(),
+        reply_markup=build_user_reply_keyboard(call.from_user.id == ADMIN_ID),
     )
 
 
