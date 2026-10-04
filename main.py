@@ -1308,7 +1308,7 @@ async def show_user_panel(message: Message):
     register_user(message.from_user)
     is_admin = message.from_user.id == ADMIN_ID
     await message.answer(
-        "👑 Admin panel:" if is_admin else "🎬 Foydalanuvchi paneli:",
+        "👑 Admin panel:" if is_admin else "✅ Menyu yangilandi.",
         reply_markup=(
             build_admin_reply_keyboard()
             if is_admin
@@ -1333,7 +1333,7 @@ async def instagram_subscription_confirmed(call: CallbackQuery):
             reply_markup=None,
         )
         await message.answer(
-            "🎬 Foydalanuvchi paneli:",
+            "✅ Menyu yangilandi.",
             reply_markup=build_user_reply_keyboard(call.from_user.id == ADMIN_ID),
         )
 
@@ -1366,8 +1366,7 @@ async def user_panel_msg(message: Message):
     if message.from_user is None:
         return
     await message.answer(
-        "🎬 <b>Foydalanuvchi paneli</b>\nKerakli bo'limni pastki menyudan tanlang:",
-        parse_mode="HTML",
+        "✅ Menyu yangilandi.",
         reply_markup=build_user_reply_keyboard(message.from_user.id == ADMIN_ID),
     )
 
@@ -1379,8 +1378,7 @@ async def user_panel_callback(call: CallbackQuery):
     if message is None:
         return
     await message.answer(
-        "🎬 <b>Foydalanuvchi paneli</b>\nKerakli bo'limni pastki menyudan tanlang:",
-        parse_mode="HTML",
+        "✅ Menyu yangilandi.",
         reply_markup=build_user_reply_keyboard(call.from_user.id == ADMIN_ID),
     )
 
@@ -3640,7 +3638,7 @@ async def home_callback(call: CallbackQuery):
         reply_markup=None,
     )
     await message.answer(
-        "🎬 Foydalanuvchi paneli:",
+        "✅ Menyu yangilandi.",
         reply_markup=build_user_reply_keyboard(call.from_user.id == ADMIN_ID),
     )
 
