@@ -1,5 +1,4 @@
 import asyncio
-import aiohttp
 import json
 import os
 import random
@@ -20,11 +19,7 @@ from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    InlineQuery,
-    InlineQueryResultArticle,
-    InlineQueryResultCachedVideo,
     InputPollOption,
-    InputTextMessageContent,
     KeyboardButton,
     Message,
     ReplyKeyboardMarkup,
