@@ -948,7 +948,7 @@ def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="💎 Premium obunachilar"), KeyboardButton(text="🆓 Oddiy obunachilar")],
             [KeyboardButton(text="📚 Kinolar ro'yxati"), KeyboardButton(text="👤 Foydalanuvchi paneli")],
         ],
-        is_persistent=False,
+        is_persistent=True,
         one_time_keyboard=False,
         input_field_placeholder="Kerakli amalni tanlang...",
         resize_keyboard=True,
@@ -977,7 +977,7 @@ def build_user_reply_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
         builder.add(KeyboardButton(text="📞 Yordam"))
     builder.adjust(2)
     return builder.as_markup(
-        is_persistent=False,
+        is_persistent=True,
         one_time_keyboard=False,
         input_field_placeholder="Kerakli amalni tanlang...",
         resize_keyboard=True,
