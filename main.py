@@ -24,6 +24,7 @@ from aiogram.types import (
     KeyboardButton,
     Message,
     ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
     FSInputFile,
 )
 from dotenv import load_dotenv
@@ -971,7 +972,8 @@ def build_user_reply_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
         )
     else:
         builder.add(KeyboardButton(text="📞 Yordam"))
-    builder.adjust(2)
+    builder.add(KeyboardButton(text="⌄ Panelni yopish"))
+    builder.adjust(2, 2, 2, 2, 2, 1)
     return builder.as_markup(
         is_persistent=True,
         one_time_keyboard=False,
@@ -1314,6 +1316,14 @@ async def show_user_panel(message: Message):
             if is_admin
             else build_user_reply_keyboard()
         ),
+    )
+
+
+@dp.message(F.text == "⌄ Panelni yopish")
+async def hide_user_panel(message: Message):
+    await message.answer(
+        "✅ Panel yashirildi. Qayta ochish uchun /panel yuboring.",
+        reply_markup=ReplyKeyboardRemove(),
     )
 
 
