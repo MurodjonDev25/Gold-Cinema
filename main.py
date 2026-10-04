@@ -1290,24 +1290,18 @@ async def start_cmd(message: Message, command: CommandObject | None = None):
         )
         return
 
-    if has_instagram_access(message.from_user.id):
-        await message.answer(
-            f"👋 <b>Xush kelibsiz, {escape(message.from_user.full_name)}!</b>\n"
-            "Kerakli bo'limni pastki menyudan tanlang:",
-            parse_mode="HTML",
-            reply_markup=build_user_reply_keyboard(message.from_user.id == ADMIN_ID),
-        )
-        return
-
     await message.answer(
-        instagram_subscription_text(),
+        f"👋 <b>Xush kelibsiz, {escape(message.from_user.full_name)}!</b>\n"
+        "Kerakli bo'limni pastki menyudan tanlang:",
         parse_mode="HTML",
-        reply_markup=instagram_subscription_keyboard(),
-    )
-    await message.answer(
-        "🎬 Foydalanuvchi paneli:",
         reply_markup=build_user_reply_keyboard(),
     )
+    if not has_instagram_access(message.from_user.id):
+        await message.answer(
+            instagram_subscription_text(),
+            parse_mode="HTML",
+            reply_markup=instagram_subscription_keyboard(),
+        )
 
 
 @dp.callback_query(F.data == "instagram_confirmed")
