@@ -975,7 +975,7 @@ def build_user_reply_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
     builder.add(KeyboardButton(text="⌄ Panelni yopish"))
     builder.adjust(2, 2, 2, 2, 2, 1)
     return builder.as_markup(
-        is_persistent=True,
+        is_persistent=False,
         one_time_keyboard=False,
         input_field_placeholder="Kerakli amalni tanlang...",
         resize_keyboard=True,
