@@ -1304,6 +1304,10 @@ async def start_cmd(message: Message, command: CommandObject | None = None):
         parse_mode="HTML",
         reply_markup=instagram_subscription_keyboard(),
     )
+    await message.answer(
+        "🎬 Foydalanuvchi paneli:",
+        reply_markup=build_user_reply_keyboard(),
+    )
 
 
 @dp.callback_query(F.data == "instagram_confirmed")
