@@ -944,8 +944,9 @@ def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="👥 Referallar"), KeyboardButton(text="🏆 Taklif qilganlar")],
             [KeyboardButton(text="💎 Premium obunachilar"), KeyboardButton(text="🆓 Oddiy obunachilar")],
             [KeyboardButton(text="📚 Kinolar ro'yxati"), KeyboardButton(text="👤 Foydalanuvchi paneli")],
+            [KeyboardButton(text="🔽 Panelni yopish")],
         ],
-        is_persistent=True,
+        is_persistent=False,
         one_time_keyboard=False,
         input_field_placeholder="Kerakli amalni tanlang...",
         resize_keyboard=True,
@@ -972,7 +973,7 @@ def build_user_reply_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
         )
     else:
         builder.add(KeyboardButton(text="📞 Yordam"))
-    builder.add(KeyboardButton(text="⌄ Panelni yopish"))
+    builder.add(KeyboardButton(text="🔽 Panelni yopish"))
     builder.adjust(2, 2, 2, 2, 2, 1)
     return builder.as_markup(
         is_persistent=False,
@@ -1319,7 +1320,7 @@ async def show_user_panel(message: Message):
     )
 
 
-@dp.message(F.text == "⌄ Panelni yopish")
+@dp.message(F.text == "🔽 Panelni yopish")
 async def hide_user_panel(message: Message):
     await message.answer(
         "✅ Panel yashirildi. Qayta ochish uchun /panel yuboring.",
