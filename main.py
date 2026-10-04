@@ -15,7 +15,6 @@ from aiogram.filters import CommandObject, CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
@@ -957,30 +956,25 @@ def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
 
 def build_user_reply_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
     """Foydalanuvchi uchun so'ralgan 2 ustunli boshqaruv paneli."""
-    builder = ReplyKeyboardBuilder()
-    builder.add(
-        KeyboardButton(text="🔍 Kino qidirish"),
-        KeyboardButton(text="🔥 Yangi kinolar"),
-        KeyboardButton(text="⭐ Premium"),
-        KeyboardButton(text="🎁 Premium sovg'a qilish"),
-        KeyboardButton(text="📥 Kino buyurtma qilish"),
-        KeyboardButton(text="🎬 Kino imkoniyatlari"),
-        KeyboardButton(text="👤 Mening profilim"),
-        KeyboardButton(text="👥 Referal"),
-    )
+    keyboard = [
+        [KeyboardButton(text="🔍 Kino qidirish"), KeyboardButton(text="🔥 Yangi kinolar")],
+        [KeyboardButton(text="⭐ Premium"), KeyboardButton(text="🎁 Premium sovg'a qilish")],
+        [KeyboardButton(text="📥 Kino buyurtma qilish"), KeyboardButton(text="🎬 Kino imkoniyatlari")],
+        [KeyboardButton(text="👤 Mening profilim"), KeyboardButton(text="👥 Referal")],
+    ]
     if is_admin:
-        builder.add(
+        keyboard.append([
             KeyboardButton(text="📞 Yordam"),
             KeyboardButton(text="👑 Admin panelni ochish"),
-        )
+        ])
     else:
-        builder.add(KeyboardButton(text="📞 Yordam"))
-    builder.adjust(2)
-    return builder.as_markup(
+        keyboard.append([KeyboardButton(text="📞 Yordam")])
+    return ReplyKeyboardMarkup(
+        keyboard=keyboard,
         is_persistent=True,
         one_time_keyboard=False,
-        resize_keyboard=True,
         input_field_placeholder="Kerakli amalni tanlang...",
+        resize_keyboard=True,
     )
 
 
