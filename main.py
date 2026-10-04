@@ -10,7 +10,7 @@ from uuid import uuid4
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
-from aiogram.filters import CommandObject, CommandStart, StateFilter
+from aiogram.filters import Command, CommandObject, CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -1285,18 +1285,34 @@ async def start_cmd(message: Message, command: CommandObject | None = None):
         )
         return
 
-    await message.answer(
-        f"👋 <b>Xush kelibsiz, {escape(message.from_user.full_name)}!</b>\n"
-        "Kerakli bo'limni pastki menyudan tanlang:",
-        parse_mode="HTML",
-        reply_markup=build_user_reply_keyboard(),
-    )
     if not has_instagram_access(message.from_user.id):
         await message.answer(
             instagram_subscription_text(),
             parse_mode="HTML",
             reply_markup=instagram_subscription_keyboard(),
         )
+    await message.answer(
+        f"👋 <b>Xush kelibsiz, {escape(message.from_user.full_name)}!</b>\n"
+        "Kerakli bo'limni pastki menyudan tanlang:",
+        parse_mode="HTML",
+        reply_markup=build_user_reply_keyboard(),
+    )
+
+
+@dp.message(Command("panel"))
+async def show_user_panel(message: Message):
+    if message.from_user is None:
+        return
+    register_user(message.from_user)
+    is_admin = message.from_user.id == ADMIN_ID
+    await message.answer(
+        "👑 Admin panel:" if is_admin else "🎬 Foydalanuvchi paneli:",
+        reply_markup=(
+            build_admin_reply_keyboard()
+            if is_admin
+            else build_user_reply_keyboard()
+        ),
+    )
 
 
 @dp.callback_query(F.data == "instagram_confirmed")
