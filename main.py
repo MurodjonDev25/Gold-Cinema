@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.session.aiohttp import AiohttpSession
-from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest, TelegramForbiddenError
 from aiogram.filters import Command, CommandObject, CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -17,6 +17,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from aiogram.types import (
     CallbackQuery,
+    BotCommand,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     InputPollOption,
@@ -979,6 +980,30 @@ def build_user_reply_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
     )
 
 
+def build_user_inline_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🔍 Kino qidirish", callback_data="menu_search"),
+                InlineKeyboardButton(text="🔥 Yangi kinolar", callback_data="menu_new"),
+            ],
+            [
+                InlineKeyboardButton(text="⭐ Premium", callback_data="premium_info"),
+                InlineKeyboardButton(text="🎁 Premium sovg'a qilish", callback_data="gift_premium"),
+            ],
+            [
+                InlineKeyboardButton(text="📥 Kino buyurtma qilish", callback_data="menu_request"),
+                InlineKeyboardButton(text="🎬 Kino imkoniyatlari", callback_data="menu_library"),
+            ],
+            [
+                InlineKeyboardButton(text="👤 Mening profilim", callback_data="menu_stats"),
+                InlineKeyboardButton(text="👥 Referal", callback_data="menu_referral"),
+            ],
+            [InlineKeyboardButton(text="📞 Yordam", callback_data="menu_help")],
+        ]
+    )
+
+
 def find_movie_matches(query: str) -> dict:
     query = query.strip().casefold()
     if not query:
@@ -1285,16 +1310,21 @@ async def start_cmd(message: Message, command: CommandObject | None = None):
         )
         return
 
-    if not has_instagram_access(message.from_user.id):
+    has_access = has_instagram_access(message.from_user.id)
+    await message.answer(
+        f"👋 <b>Xush kelibsiz, {escape(message.from_user.full_name)}!</b>\n"
+        "Kerakli bo'limni tanlang:",
+        parse_mode="HTML",
+        reply_markup=build_user_inline_keyboard(),
+    )
+    if not has_access:
         await message.answer(
             instagram_subscription_text(),
             parse_mode="HTML",
             reply_markup=instagram_subscription_keyboard(),
         )
     await message.answer(
-        f"👋 <b>Xush kelibsiz, {escape(message.from_user.full_name)}!</b>\n"
-        "Kerakli bo'limni pastki menyudan tanlang:",
-        parse_mode="HTML",
+        "⌨️ Pastki panel:",
         reply_markup=build_user_reply_keyboard(),
     )
 
@@ -3788,6 +3818,18 @@ async def main():
     global BOT_USERNAME
     me = await bot.get_me()
     BOT_USERNAME = me.username or ""
+    try:
+        commands = await bot.get_my_commands()
+        commands = [command for command in commands if command.command != "panel"]
+        commands.append(
+            BotCommand(
+                command="panel",
+                description="Foydalanuvchi panelini ochish",
+            )
+        )
+        await bot.set_my_commands(commands)
+    except TelegramAPIError as error:
+        print(f"Bot menyusiga /panel buyrug'ini qo'shib bo'lmadi: {error}")
     print("Bot muvaffaqiyatli ishga tushdi...")
     try:
         await dp.start_polling(bot)
