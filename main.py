@@ -15,6 +15,7 @@ from aiogram.filters import CommandObject, CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
@@ -956,25 +957,30 @@ def build_admin_reply_keyboard() -> ReplyKeyboardMarkup:
 
 def build_user_reply_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
     """Foydalanuvchi uchun so'ralgan 2 ustunli boshqaruv paneli."""
-    keyboard = [
-        [KeyboardButton(text="🔎 Kino qidirish"), KeyboardButton(text="🔥 Yangi kinolar")],
-        [KeyboardButton(text="⭐ Premium"), KeyboardButton(text="🎁 Premium sovg'a qilish")],
-        [KeyboardButton(text="📥 Kino buyurtma qilish"), KeyboardButton(text="🎬 Kino imkoniyatlari")],
-        [KeyboardButton(text="👤 Mening profilim"), KeyboardButton(text="👥 Referal")],
-    ]
+    builder = ReplyKeyboardBuilder()
+    builder.add(
+        KeyboardButton(text="🔍 Kino qidirish"),
+        KeyboardButton(text="🔥 Yangi kinolar"),
+        KeyboardButton(text="⭐ Premium"),
+        KeyboardButton(text="🎁 Premium sovg'a qilish"),
+        KeyboardButton(text="📥 Kino buyurtma qilish"),
+        KeyboardButton(text="🎬 Kino imkoniyatlari"),
+        KeyboardButton(text="👤 Mening profilim"),
+        KeyboardButton(text="👥 Referal"),
+    )
     if is_admin:
-        keyboard.append([
+        builder.add(
             KeyboardButton(text="📞 Yordam"),
             KeyboardButton(text="👑 Admin panelni ochish"),
-        ])
+        )
     else:
-        keyboard.append([KeyboardButton(text="📞 Yordam")])
-    return ReplyKeyboardMarkup(
-        keyboard=keyboard,
+        builder.add(KeyboardButton(text="📞 Yordam"))
+    builder.adjust(2)
+    return builder.as_markup(
         is_persistent=True,
         one_time_keyboard=False,
-        input_field_placeholder="Gold Cinema menyusidan tanlang",
         resize_keyboard=True,
+        input_field_placeholder="Kerakli amalni tanlang...",
     )
 
 
@@ -3277,7 +3283,7 @@ async def latest_movies_callback(call: CallbackQuery):
         await send_latest_movies(message)
 
 
-@dp.message(F.text == "🔎 Kino qidirish")
+@dp.message(F.text.in_({"🔍 Kino qidirish", "🔎 Kino qidirish"}))
 async def movie_search_start(message: Message, state: FSMContext):
     await state.set_state(MovieSearchState.waiting)
     await message.answer("🔎 Kino nomi, janri yoki yilini yozib qidiring:")
