@@ -980,30 +980,6 @@ def build_user_reply_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
     )
 
 
-def build_user_inline_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="🔍 Kino qidirish", callback_data="menu_search"),
-                InlineKeyboardButton(text="🔥 Yangi kinolar", callback_data="menu_new"),
-            ],
-            [
-                InlineKeyboardButton(text="⭐ Premium", callback_data="premium_info"),
-                InlineKeyboardButton(text="🎁 Premium sovg'a qilish", callback_data="gift_premium"),
-            ],
-            [
-                InlineKeyboardButton(text="📥 Kino buyurtma qilish", callback_data="menu_request"),
-                InlineKeyboardButton(text="🎬 Kino imkoniyatlari", callback_data="menu_library"),
-            ],
-            [
-                InlineKeyboardButton(text="👤 Mening profilim", callback_data="menu_stats"),
-                InlineKeyboardButton(text="👥 Referal", callback_data="menu_referral"),
-            ],
-            [InlineKeyboardButton(text="📞 Yordam", callback_data="menu_help")],
-        ]
-    )
-
-
 def find_movie_matches(query: str) -> dict:
     query = query.strip().casefold()
     if not query:
@@ -1311,12 +1287,6 @@ async def start_cmd(message: Message, command: CommandObject | None = None):
         return
 
     has_access = has_instagram_access(message.from_user.id)
-    await message.answer(
-        f"👋 <b>Xush kelibsiz, {escape(message.from_user.full_name)}!</b>\n"
-        "Kerakli bo'limni tanlang:",
-        parse_mode="HTML",
-        reply_markup=build_user_inline_keyboard(),
-    )
     if not has_access:
         await message.answer(
             instagram_subscription_text(),
@@ -1324,7 +1294,9 @@ async def start_cmd(message: Message, command: CommandObject | None = None):
             reply_markup=instagram_subscription_keyboard(),
         )
     await message.answer(
-        "⌨️ Pastki panel:",
+        f"👋 <b>Xush kelibsiz, {escape(message.from_user.full_name)}!</b>\n"
+        "Kerakli bo'limni pastki menyudan tanlang:",
+        parse_mode="HTML",
         reply_markup=build_user_reply_keyboard(),
     )
 
