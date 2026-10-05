@@ -1,14 +1,14 @@
 {
   "movies": {
     "1": {
-      "file_id": "BAACAgIAAxkBAAMiaovw81ufq828W5Uug8LSvAVi_PgAAvpvAAKtEuBKyZ2zMf7IOs49BA",
-      "name": "🎬 Changalzordagi Ajal",
-      "til": "O'zbek Tilida",
-      "sifat": "1080P",
-      "yil": "2025",
-      "janr": "Tarjima Qo'rqinchli",
-      "davlat": "Britaniya, Tailand Va Daniya Kinostudiyalari Tomonidan Hamkorlikda Ishlab Chiqarilgan",
-      "davomiyligi": "1 Soat 27 Minut",
+       "file_id": "BAACAgQAAxkBAAIONWrDaJvcq-c4htq1_h2nKPkRlOR9AALKGgACWb8gU2QMxEJokhV9PQQ",
+        "name": "Sirli yirtqich",
+        "til": "O'zbek tilida",
+        "sifat": "1080p",
+        "yil": "2025",
+        "janr": "tarjima qo'rqinchli",
+        "davlat": "Buyuk Britaniya, ",
+        "davomiyligi": "1 soat 27 minut",
       "is_premiere": false,
       "trailer_file_id": null,
       "media_type": "video"
@@ -67,7 +67,7 @@
     },
     "6": {
       "file_id": "BAACAgQAAxkBAAIDb2qNqm4StSOh7zTpqVmDGZMGW6QrAALqCQACo2aJUxF0l3u5t9uqPQQ",
-      "name": "QOTILNING RAFIQASI TANSOQCHIS",
+      "name": "QOTILNING RAFIQASI VA TANSOQCHISI",
       "til": "O'zbek Tilida",
       "sifat": "1080P",
       "yil": "2021",

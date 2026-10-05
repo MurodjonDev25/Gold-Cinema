@@ -350,7 +350,7 @@ MOVIES_DATABASE = {
     },
     "6": {
         "file_id": "BAACAgQAAxkBAAIDb2qNqm4StSOh7zTpqVmDGZMGW6QrAALqCQACo2aJUxF0l3u5t9uqPQQ",
-        "name": "Qotilning rafiqasi tansoqchisi",
+        "name": "Qotilning rafiqasi va tansoqchisi",
         "til": "O'zbek tilida",
         "sifat": "1080p",
         "yil": "2021",
