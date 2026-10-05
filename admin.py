@@ -50,6 +50,25 @@ async def admin_panel_callback(call: CallbackQuery):
 
 
 
+@router.message(
+    F.text.in_({
+        "📊 Statistika",
+        "👥 Foydalanuvchilar",
+        "💎 Premium obunachilar",
+        "🆓 Oddiy obunachilar",
+        "🎬 Kino qo'shish",
+        "🗑 Kino o'chirish",
+        "💎 Premium berish",
+        "🚫 Premium olish",
+        "📥 Kino buyurtmalari",
+        "💰 To'lovlar",
+        "🎁 Promo-kodlar",
+        "👥 Referallar",
+        "🏆 Taklif qilganlar",
+        "📢 Reklama yuborish",
+        "📚 Kinolar ro'yxati",
+    }),
+)
 async def admin_reply_panel_action(message: Message, state: FSMContext):
     if message.from_user is None or message.from_user.id != ADMIN_ID:
         return
@@ -1497,4 +1516,3 @@ async def get_document_file_id(message: Message):
         "shunda hujjat avtomatik ravishda wizardga qabul qilinadi.",
         parse_mode="HTML",
     )
-

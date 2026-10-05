@@ -1372,25 +1372,6 @@ async def user_panel_callback(call: CallbackQuery):
     )
 
 
-@dp.message(
-    F.text.in_({
-        "📊 Statistika",
-        "👥 Foydalanuvchilar",
-        "💎 Premium obunachilar",
-        "🆓 Oddiy obunachilar",
-        "🎬 Kino qo'shish",
-        "🗑 Kino o'chirish",
-        "💎 Premium berish",
-        "🚫 Premium olish",
-        "📥 Kino buyurtmalari",
-        "💰 To'lovlar",
-        "🎁 Promo-kodlar",
-        "👥 Referallar",
-        "🏆 Taklif qilganlar",
-        "📢 Reklama yuborish",
-        "📚 Kinolar ro'yxati",
-    }),
-)
 @dp.callback_query(F.data == "premium_info")
 async def premium_info(call: CallbackQuery):
     await call.answer()
