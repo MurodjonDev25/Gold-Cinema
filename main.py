@@ -294,13 +294,13 @@ class GiftPremiumState(StatesGroup):
 
 MOVIES_DATABASE = {
 "1": {
-        "file_id": "BAACAgIAAxkBAAMiaovw81ufq828W5Uug8LSvAVi_PgAAvpvAAKtEuBKyZ2zMf7IOs49BA",
-        "name": "Changalzordagi ajal",
+        "file_id": "BAACAgQAAxkBAAIONWrDaJvcq-c4htq1_h2nKPkRlOR9AALKGgACWb8gU2QMxEJokhV9PQQ",
+        "name": "Sirli yirtqich",
         "til": "O'zbek tilida",
         "sifat": "1080p",
         "yil": "2025",
         "janr": "tarjima qo'rqinchli",
-        "davlat": "Britaniya, Tailand va Daniya kinostudiyalari tomonidan hamkorlikda ishlab chiqarilgan",
+        "davlat": "Buyuk Britaniya, ",
         "davomiyligi": "1 soat 27 minut",
         "is_premium": False,
     },
