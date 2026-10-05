@@ -2388,7 +2388,11 @@ async def movie_add_media(message: Message, state: FSMContext):
         return
     await state.update_data(file_id=file_id, media_type=media_type)
     await state.set_state(AddMovie.name)
-    await message.answer("1/7 🎬 Kino nomini yuboring:")
+    await message.answer(
+        f"🔑 <b>File ID:</b> <code>{file_id}</code>\n\n"
+        "1/7 🎬 Kino nomini yuboring:",
+        parse_mode="HTML",
+    )
 
 
 async def save_add_movie_field(message: Message, state: FSMContext, field: str, next_state: State, prompt: str):
