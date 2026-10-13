@@ -776,6 +776,23 @@ def register_user(user) -> bool:
     return is_new
 
 
+async def register_untracked_private_user(handler, message: Message, data: dict):
+    user = message.from_user
+    command = (message.text or "").split(maxsplit=1)
+    command_name = command[0].split("@", 1)[0].lower() if command else ""
+    if (
+        message.chat.type == "private"
+        and user is not None
+        and command_name != "/start"
+        and (user.id not in ALL_USERS or user.id not in USER_INFO)
+    ):
+        register_user(user)
+    return await handler(message, data)
+
+
+dp.message.outer_middleware.register(register_untracked_private_user)
+
+
 def get_callback_message(call: CallbackQuery) -> Message | None:
     """Callback xabarini faqat tahrirlash mumkin bo'lsa qaytaradi."""
     return call.message if isinstance(call.message, Message) else None
@@ -975,7 +992,8 @@ def build_user_reply_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
     else:
         builder.add(KeyboardButton(text="📞 Yordam"))
     builder.add(KeyboardButton(text="🔽 Panelni yopish"))
-    builder.adjust(2, 2, 2, 2, 2, 1)
+    builder.add(KeyboardButton(text="📱 Telefon raqamimni yuborish", request_contact=True))
+    builder.adjust(2, 2, 2, 2, 2, 1, 1)
     return builder.as_markup(
         is_persistent=False,
         one_time_keyboard=False,
