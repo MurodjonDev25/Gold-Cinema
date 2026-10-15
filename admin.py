@@ -1516,3 +1516,521 @@ async def get_document_file_id(message: Message):
         "shunda hujjat avtomatik ravishda wizardga qabul qilinadi.",
         parse_mode="HTML",
     )
+
+# ===================== GOLD CINEMA: KENGAYTIRILGAN ADMIN PANEL =====================
+# Bu bo'lim mavjud admin.py funksiyalarini saqlagan holda qo'shimcha boshqaruv
+# imkoniyatlarini beradi. Yangi menyuni /adminplus buyrug'i bilan oching.
+
+from aiogram.fsm.state import State as _AdminState, StatesGroup as _AdminStatesGroup
+from aiogram.types import InlineKeyboardMarkup as _AdminInlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton as _AdminInlineKeyboardButton
+from datetime import datetime as _AdminDateTime, timedelta as _AdminTimedelta
+import json as _admin_json
+import os as _admin_os
+
+ADMIN_BLOCKED_FILE = "admin_blocked_users.json"
+
+
+class ExtendedAdminState(_AdminStatesGroup):
+    lookup_user_id = _AdminState()
+    premium_user_id = _AdminState()
+    premium_days = _AdminState()
+    revoke_user_id = _AdminState()
+    delete_user_id = _AdminState()
+    block_user_id = _AdminState()
+    broadcast_kind = _AdminState()
+    broadcast_text = _AdminState()
+
+
+def _admin_load_blocked_users() -> set[int]:
+    try:
+        with open(ADMIN_BLOCKED_FILE, "r", encoding="utf-8") as _f:
+            _data = _admin_json.load(_f)
+        return {int(_x) for _x in _data if str(_x).isdigit()}
+    except (OSError, ValueError, TypeError):
+        return set()
+
+
+def _admin_save_blocked_users(_ids: set[int]) -> None:
+    _tmp = ADMIN_BLOCKED_FILE + ".tmp"
+    with open(_tmp, "w", encoding="utf-8") as _f:
+        _admin_json.dump(sorted(_ids), _f, ensure_ascii=False, indent=2)
+    _admin_os.replace(_tmp, ADMIN_BLOCKED_FILE)
+
+
+ADMIN_BLOCKED_USERS = _admin_load_blocked_users()
+
+
+def _extended_admin_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📊 Statistika", callback_data="xadmin:stats"),
+         InlineKeyboardButton(text="🔎 Foydalanuvchini topish", callback_data="xadmin:lookup")],
+        [InlineKeyboardButton(text="💎 Premium berish", callback_data="xadmin:premium"),
+         InlineKeyboardButton(text="❌ Premiumni bekor qilish", callback_data="xadmin:revoke")],
+        [InlineKeyboardButton(text="🚫 Bloklash / blokdan chiqarish", callback_data="xadmin:block")],
+        [InlineKeyboardButton(text="🗑 Foydalanuvchini o'chirish", callback_data="xadmin:delete")],
+        [InlineKeyboardButton(text="📢 Ommaviy xabar", callback_data="xadmin:broadcast")],
+        [InlineKeyboardButton(text="🔄 Bloklanganlar ro'yxati", callback_data="xadmin:blocked")],
+        [InlineKeyboardButton(text="❌ Yopish", callback_data="xadmin:close")],
+    ])
+
+
+def _extended_admin_back_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="◀️ Kengaytirilgan panel", callback_data="xadmin:home")]
+    ])
+
+
+@router.message(F.text == "/adminplus")
+async def extended_admin_open(message: Message, state: FSMContext):
+    if message.from_user is None or message.from_user.id != ADMIN_ID:
+        return
+    await state.clear()
+    await message.answer(
+        "👑 <b>GOLD CINEMA — KENGAYTIRILGAN ADMIN</b>\n"
+        "Kerakli bo'limni tanlang:",
+        parse_mode="HTML",
+        reply_markup=_extended_admin_keyboard(),
+    )
+
+
+@router.callback_query(F.data.startswith("xadmin:"))
+async def extended_admin_actions(call: CallbackQuery, state: FSMContext):
+    if call.from_user.id != ADMIN_ID:
+        await call.answer("❌ Siz admin emassiz!", show_alert=True)
+        return
+    action = (call.data or "").split(":", 1)[1]
+    message = get_callback_message(call)
+
+    if action == "close":
+        await state.clear()
+        await call.answer("Panel yopildi.")
+        if message:
+            try:
+                await message.edit_reply_markup(reply_markup=None)
+            except TelegramBadRequest:
+                pass
+        return
+
+    if action == "home":
+        await state.clear()
+        await call.answer()
+        if message:
+            await message.edit_text(
+                "👑 <b>GOLD CINEMA — KENGAYTIRILGAN ADMIN</b>\n"
+                "Kerakli bo'limni tanlang:",
+                parse_mode="HTML",
+                reply_markup=_extended_admin_keyboard(),
+            )
+        return
+
+    await state.clear()
+    if action == "stats":
+        _active = len(active_premium_user_ids())
+        _expired = 0
+        _now = _AdminDateTime.now()
+        for _uid, _expiry in PREMIUM_SUBSCRIPTIONS.items():
+            try:
+                if _AdminDateTime.fromisoformat(str(_expiry)) <= _now:
+                    _expired += 1
+            except (TypeError, ValueError):
+                continue
+        _total_views = sum(VIEWS.values())
+        _total_likes = sum(len(_m.get("likes", set())) for _m in MOVIES_DATABASE.values())
+        _text = (
+            "📊 <b>Gold Cinema statistikasi</b>\n\n"
+            f"👥 Jami foydalanuvchilar: <b>{len(ALL_USERS)}</b>\n"
+            f"💎 Faol Premium: <b>{_active}</b>\n"
+            f"⌛ Muddati o'tgan obunalar (saqlangan): <b>{_expired}</b>\n"
+        f"🚫 Admin blok ro'yxati: {blocked_text}",
+            f"🎬 Kinolar: <b>{len(MOVIES_DATABASE)}</b>\n"
+            f"👁 Ko'rishlar: <b>{_total_views}</b>\n"
+            f"👍 Like'lar: <b>{_total_likes}</b>"
+        )
+        await call.answer()
+        if message:
+            await message.edit_text(_text, parse_mode="HTML", reply_markup=_extended_admin_back_keyboard())
+        return
+
+    if action == "lookup":
+        await state.set_state(ExtendedAdminState.lookup_user_id)
+        await call.answer()
+        if message:
+            await message.answer("🔎 Tekshiriladigan foydalanuvchining Telegram ID sini yuboring. Bekor qilish: /cancel")
+        return
+
+    if action == "premium":
+        await state.set_state(ExtendedAdminState.premium_user_id)
+        await call.answer()
+        if message:
+            await message.answer("💎 Premium beriladigan foydalanuvchining Telegram ID sini yuboring. Bekor qilish: /cancel")
+        return
+
+    if action == "revoke":
+        await state.set_state(ExtendedAdminState.revoke_user_id)
+        await call.answer()
+        if message:
+            await message.answer("❌ Premiumi bekor qilinadigan foydalanuvchining Telegram ID sini yuboring. Bekor qilish: /cancel")
+        return
+
+    if action == "delete":
+        await state.set_state(ExtendedAdminState.delete_user_id)
+        await call.answer()
+        if message:
+            await message.answer(
+                "⚠️ <b>Diqqat!</b> Bu amal foydalanuvchini botning saqlangan ma'lumotlaridan o'chiradi.\n"
+                "O'chirish uchun Telegram ID sini yuboring. Bekor qilish: /cancel",
+                parse_mode="HTML",
+            )
+        return
+
+    if action == "block":
+        await state.set_state(ExtendedAdminState.block_user_id)
+        await call.answer()
+        if message:
+            await message.answer(
+                "🚫 Bloklash yoki blokdan chiqarish uchun foydalanuvchi ID sini yuboring.\n"
+                "Eslatma: bu ro'yxat admin.py da saqlanadi; foydalanuvchining botdan foydalanishini "
+                "to'liq cheklash uchun main.py dagi foydalanuvchi handlerlarida ham tekshirish kerak."
+            )
+        return
+
+    if action == "blocked":
+        _lines = ["🚫 <b>Admin blok ro'yxati</b>\n\n"]
+        if not ADMIN_BLOCKED_USERS:
+            _lines.append("Ro'yxat bo'sh.")
+        else:
+            for _uid in sorted(ADMIN_BLOCKED_USERS):
+                _info = USER_INFO.get(_uid, {})
+                _name = escape(str(_info.get("name", "Noma'lum")))
+                _lines.append(f"• {_name} — <code>{_uid}</code>\n")
+                if sum(map(len, _lines)) > 3500:
+                    _lines.append("\nRo'yxat uzunligi sababli qisqartirildi.")
+                    break
+        await call.answer()
+        if message:
+            await message.edit_text(
+                "".join(_lines),
+                parse_mode="HTML",
+                reply_markup=_extended_admin_back_keyboard(),
+            )
+        return
+
+    if action == "broadcast":
+        await state.set_state(ExtendedAdminState.broadcast_kind)
+        await call.answer()
+        if message:
+            await message.answer(
+                "📢 Xabar kimga yuborilsin?\n"
+                "Quyidagilardan birini yuboring:\n"
+                "all — barcha foydalanuvchilar\n"
+                "premium — faqat Premium\n"
+                "free — faqat bepul foydalanuvchilar\n"
+                "Bekor qilish: /cancel"
+            )
+        return
+
+    await call.answer("Noma'lum amal.", show_alert=True)
+
+
+@router.message(ExtendedAdminState.lookup_user_id, F.text)
+async def extended_admin_lookup_user(message: Message, state: FSMContext):
+    if message.from_user is None or message.from_user.id != ADMIN_ID or not message.text:
+        return
+    raw = message.text.strip()
+    if not raw.isdigit() or int(raw) <= 0:
+        await message.answer("⚠️ To'g'ri, musbat Telegram ID yuboring.")
+        return
+    uid = int(raw)
+    info = USER_INFO.get(uid, {})
+    premium = has_premium_access(uid)
+    expiry = PREMIUM_SUBSCRIPTIONS.get(uid)
+    expiry_text = "Muddati saqlanmagan yoki cheksiz"
+    user_name = escape(str(info.get("name", "Noma'lum")))
+    joined_text = escape(str(info.get("joined", "Noma'lum")))
+    blocked_text = "Ha" if uid in ADMIN_BLOCKED_USERS else "Yo'q"
+    if expiry:
+        try:
+            expiry_text = _AdminDateTime.fromisoformat(str(expiry)).strftime("%d.%m.%Y %H:%M")
+        except (TypeError, ValueError):
+            expiry_text = "Sana formati noto'g'ri"
+    await state.clear()
+    await message.answer(
+        "👤 <b>Foydalanuvchi ma'lumoti</b>\n\n"
+        f"🆔 ID: <code>{uid}</code>\n"
+        f"👤 Ism: {user_name}\\n"
+        f"🔗 Username: {escape(str(info.get('username', 'Mavjud emas')))}\n"
+        f"📅 Qo'shilgan: {joined_text}\\n"
+        f"💎 Premium: {'Faol' if premium else 'Faol emas'}\n"
+        f"⌛ Premium tugashi: {escape(expiry_text)}\n"
+        f"🚫 Admin blok ro'yxati: {blocked_text}",
+        parse_mode="HTML",
+        reply_markup=_extended_admin_back_keyboard(),
+    )
+
+
+@router.message(ExtendedAdminState.premium_user_id, F.text)
+async def extended_admin_premium_user(message: Message, state: FSMContext):
+    if message.from_user is None or message.from_user.id != ADMIN_ID or not message.text:
+        return
+    raw = message.text.strip()
+    if not raw.isdigit() or int(raw) <= 0:
+        await message.answer("⚠️ To'g'ri, musbat Telegram ID yuboring.")
+        return
+    uid = int(raw)
+    await state.update_data(target_user_id=uid)
+    await state.set_state(ExtendedAdminState.premium_days)
+    await message.answer(
+        f"💎 <code>{uid}</code> uchun Premium necha kun berilsin?\n"
+        "7, 30, 90, 180, 365 yoki o'zingiz xohlagan 1–3650 oralig'idagi kun sonini yuboring.\n"
+        "Mavjud Premium bo'lsa, yangi muddat qolgan muddat ustiga qo'shiladi.",
+        parse_mode="HTML",
+    )
+
+
+@router.message(ExtendedAdminState.premium_days, F.text)
+async def extended_admin_premium_days(message: Message, state: FSMContext):
+    if message.from_user is None or message.from_user.id != ADMIN_ID or not message.text:
+        return
+    raw = message.text.strip()
+    if not raw.isdigit() or not 1 <= int(raw) <= 3650:
+        await message.answer("⚠️ Kun soni 1 dan 3650 gacha bo'lgan butun son bo'lishi kerak.")
+        return
+    data = await state.get_data()
+    uid = int(data.get("target_user_id", 0))
+    if uid <= 0:
+        await state.clear()
+        await message.answer("❌ Foydalanuvchi ID si topilmadi. Qaytadan boshlang.")
+        return
+    if uid == ADMIN_ID:
+        await state.clear()
+        await message.answer("ℹ️ Admin akkauntining Premiumini bu bo'limdan o'zgartirib bo'lmaydi.")
+        return
+
+    now = _AdminDateTime.now()
+    current_expiry = PREMIUM_SUBSCRIPTIONS.get(uid)
+    try:
+        parsed_expiry = _AdminDateTime.fromisoformat(str(current_expiry)) if current_expiry else now
+    except (TypeError, ValueError):
+        parsed_expiry = now
+    start = parsed_expiry if parsed_expiry > now else now
+    expiry = start + _AdminTimedelta(days=int(raw))
+
+    # Mavjud botdagi Premium tekshiruviga mos ravishda vaqtli obunani saqlaymiz.
+    PREMIUM_SUBSCRIPTIONS[uid] = expiry.isoformat()
+    PREMIUM_OVERRIDES.pop(uid, None)
+    ALL_USERS.add(uid)
+    USER_INFO.setdefault(uid, {
+        "name": "Noma'lum",
+        "username": "Mavjud emas",
+        "phone": "Mavjud emas",
+        "joined": now.strftime("%d.%m.%Y"),
+    })
+    save_data()
+    await state.clear()
+    await message.answer(
+        f"✅ <b>Premium berildi</b>\n\n"
+        f"👤 ID: <code>{uid}</code>\n"
+        f"➕ Qo'shilgan muddat: <b>{int(raw)} kun</b>\n"
+        f"⌛ Tugash vaqti: <b>{expiry.strftime('%d.%m.%Y %H:%M')}</b>",
+        parse_mode="HTML",
+        reply_markup=_extended_admin_back_keyboard(),
+    )
+    try:
+        await bot.send_message(
+            uid,
+            f"💎 Sizga Gold Cinema Premium berildi!\n"
+            f"⌛ Amal qilish muddati: <b>{expiry.strftime('%d.%m.%Y %H:%M')}</b>",
+            parse_mode="HTML",
+        )
+    except (TelegramBadRequest, TelegramForbiddenError):
+        pass
+
+
+@router.message(ExtendedAdminState.revoke_user_id, F.text)
+async def extended_admin_revoke_premium(message: Message, state: FSMContext):
+    if message.from_user is None or message.from_user.id != ADMIN_ID or not message.text:
+        return
+    raw = message.text.strip()
+    if not raw.isdigit() or int(raw) <= 0:
+        await message.answer("⚠️ To'g'ri, musbat Telegram ID yuboring.")
+        return
+    uid = int(raw)
+    PREMIUM_OVERRIDES[uid] = False
+    PREMIUM_SUBSCRIPTIONS.pop(uid, None)
+    save_data()
+    await state.clear()
+    await message.answer(
+        f"✅ <code>{uid}</code> foydalanuvchisining Premium obunasi bekor qilindi.",
+        parse_mode="HTML",
+        reply_markup=_extended_admin_back_keyboard(),
+    )
+    try:
+        await bot.send_message(uid, "ℹ️ Gold Cinema Premium obunangiz administrator tomonidan bekor qilindi.")
+    except (TelegramBadRequest, TelegramForbiddenError):
+        pass
+
+
+@router.message(ExtendedAdminState.block_user_id, F.text)
+async def extended_admin_toggle_block(message: Message, state: FSMContext):
+    if message.from_user is None or message.from_user.id != ADMIN_ID or not message.text:
+        return
+    raw = message.text.strip()
+    if not raw.isdigit() or int(raw) <= 0:
+        await message.answer("⚠️ To'g'ri, musbat Telegram ID yuboring.")
+        return
+    uid = int(raw)
+    if uid == ADMIN_ID:
+        await state.clear()
+        await message.answer("❌ O'zingizni bloklay olmaysiz.")
+        return
+    if uid in ADMIN_BLOCKED_USERS:
+        ADMIN_BLOCKED_USERS.remove(uid)
+        result = "blok ro'yxatidan chiqarildi"
+    else:
+        ADMIN_BLOCKED_USERS.add(uid)
+        result = "admin blok ro'yxatiga qo'shildi"
+    _admin_save_blocked_users(ADMIN_BLOCKED_USERS)
+    await state.clear()
+    await message.answer(
+        f"✅ <code>{uid}</code> {result}.\n\n"
+        "Eslatma: botdan foydalanishni amalda to'xtatish uchun main.py dagi "
+        "foydalanuvchi handlerlari ADMIN_BLOCKED_USERS ni tekshirishi kerak.",
+        parse_mode="HTML",
+        reply_markup=_extended_admin_back_keyboard(),
+    )
+
+
+@router.message(ExtendedAdminState.delete_user_id, F.text)
+async def extended_admin_delete_user(message: Message, state: FSMContext):
+    if message.from_user is None or message.from_user.id != ADMIN_ID or not message.text:
+        return
+    raw = message.text.strip()
+    if not raw.isdigit() or int(raw) <= 0:
+        await message.answer("⚠️ To'g'ri, musbat Telegram ID yuboring.")
+        return
+    uid = int(raw)
+    if uid == ADMIN_ID:
+        await state.clear()
+        await message.answer("❌ Admin akkauntini o'chirishga ruxsat berilmaydi.")
+        return
+    # Avval ko'rib chiqiladigan foydalanuvchi ekanini tekshirib, tasdiq talab qilamiz.
+    await state.update_data(delete_target_user_id=uid)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Ha, o'chirish", callback_data=f"xadmin_delete_confirm:{uid}")],
+        [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="xadmin_delete_cancel")],
+    ])
+    await state.clear()
+    await state.update_data(delete_target_user_id=uid)
+    await message.answer(
+        f"⚠️ <b>{uid}</b> ID li foydalanuvchini saqlangan bot ma'lumotlaridan o'chirishni tasdiqlaysizmi?\n"
+        "Bu amalni qaytarish qiyin bo'lishi mumkin.",
+        parse_mode="HTML",
+        reply_markup=kb,
+    )
+
+
+@router.callback_query(F.data.startswith("xadmin_delete_confirm:"))
+async def extended_admin_confirm_delete(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID or not call.data:
+        await call.answer("❌ Ruxsat yo'q.", show_alert=True)
+        return
+    raw = call.data.split(":", 1)[1]
+    if not raw.isdigit():
+        await call.answer("ID noto'g'ri.", show_alert=True)
+        return
+    uid = int(raw)
+    if uid == ADMIN_ID:
+        await call.answer("Adminni o'chirib bo'lmaydi.", show_alert=True)
+        return
+
+    existed = uid in ALL_USERS or uid in USER_INFO or uid in PREMIUM_OVERRIDES or uid in PREMIUM_SUBSCRIPTIONS
+    ALL_USERS.discard(uid)
+    USER_INFO.pop(uid, None)
+    PREMIUM_OVERRIDES.pop(uid, None)
+    PREMIUM_SUBSCRIPTIONS.pop(uid, None)
+    LIBRARY_SUBSCRIPTIONS.pop(uid, None)
+    FAVORITES.pop(uid, None)
+    REFERRALS.pop(uid, None)
+    for _invited in list(REFERRALS.keys()):
+        try:
+            REFERRALS[_invited].discard(uid)
+        except AttributeError:
+            pass
+    # O'chirilgan foydalanuvchini boshqa foydalanuvchilarning kino reaksiyalaridan ham tozalash.
+    for _movie in MOVIES_DATABASE.values():
+        for _field in ("likes", "dislikes"):
+            _value = _movie.get(_field)
+            if hasattr(_value, "discard"):
+                _value.discard(uid)
+            elif isinstance(_value, list):
+                _movie[_field] = [_x for _x in _value if _x != uid]
+    ADMIN_BLOCKED_USERS.discard(uid)
+    _admin_save_blocked_users(ADMIN_BLOCKED_USERS)
+    save_data()
+    await call.answer("Foydalanuvchi o'chirildi." if existed else "Foydalanuvchi ma'lumoti topilmadi.")
+    _msg = get_callback_message(call)
+    if _msg:
+        await _msg.edit_text(
+            f"🗑 <code>{uid}</code> foydalanuvchisining mavjud saqlangan ma'lumotlari o'chirildi.",
+            parse_mode="HTML",
+            reply_markup=_extended_admin_back_keyboard(),
+        )
+
+
+@router.callback_query(F.data == "xadmin_delete_cancel")
+async def extended_admin_cancel_delete(call: CallbackQuery):
+    if call.from_user.id != ADMIN_ID:
+        await call.answer("❌ Ruxsat yo'q.", show_alert=True)
+        return
+    await call.answer("O'chirish bekor qilindi.")
+    _msg = get_callback_message(call)
+    if _msg:
+        await _msg.edit_text("✅ Foydalanuvchini o'chirish bekor qilindi.", reply_markup=_extended_admin_back_keyboard())
+
+
+@router.message(ExtendedAdminState.broadcast_kind, F.text)
+async def extended_admin_broadcast_kind(message: Message, state: FSMContext):
+    if message.from_user is None or message.from_user.id != ADMIN_ID or not message.text:
+        return
+    kind = message.text.strip().lower()
+    if kind not in {"all", "premium", "free"}:
+        await message.answer("⚠️ Faqat all, premium yoki free deb yuboring.")
+        return
+    await state.update_data(broadcast_kind=kind)
+    await state.set_state(ExtendedAdminState.broadcast_text)
+    await message.answer("📢 Yuboriladigan xabar matnini yuboring. Bekor qilish: /cancel")
+
+
+@router.message(ExtendedAdminState.broadcast_text, F.text)
+async def extended_admin_broadcast_send(message: Message, state: FSMContext):
+    if message.from_user is None or message.from_user.id != ADMIN_ID or message.text is None:
+        return
+    data = await state.get_data()
+    kind = data.get("broadcast_kind", "all")
+    users = set(ALL_USERS)
+    if kind == "premium":
+        users = {uid for uid in users if has_premium_access(uid)}
+    elif kind == "free":
+        users = {uid for uid in users if not has_premium_access(uid)}
+    users -= ADMIN_BLOCKED_USERS
+
+    await state.clear()
+    ok = fail = 0
+    for uid in sorted(users):
+        try:
+            await bot.send_message(uid, message.text)
+            ok += 1
+        except (TelegramBadRequest, TelegramForbiddenError):
+            fail += 1
+        except Exception:
+            fail += 1
+        await asyncio.sleep(0.05)
+    await message.answer(
+        f"📢 <b>Ommaviy xabar yakunlandi</b>\n\n"
+        f"🎯 Auditoriya: <code>{escape(str(kind))}</code>\n"
+        f"✅ Yuborildi: <b>{ok}</b>\n"
+        f"⚠️ Yetkazilmadi: <b>{fail}</b>",
+        parse_mode="HTML",
+        reply_markup=_extended_admin_back_keyboard(),
+    )
